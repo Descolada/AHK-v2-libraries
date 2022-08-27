@@ -1,18 +1,23 @@
 # AHK-v2-libraries
-Useful libraries for AHK v2
+# Useful libraries for AHK v2
 
-Misc.ahk  ---  implements useful miscellaneous functions
+## Misc.ahk  
+Implements useful miscellaneous functions 
 
-Range: allows looping from start to end with step.
-Range(stop)
-Range(start, stop [, step ])
-Usage: `for v in Range(2,10)` -> loops from 2 to 10
-`for v in Range(10,1,-1)` -> loops from 10 to 1 backwards
+Range: allows looping from start to end with step.  
+```
+Range(stop)  
+Range(start, stop [, step ])  
+```
+Usage: `for v in Range(2,10)` -> loops from 2 to 10  
+`for v in Range(10,1,-1)` -> loops from 10 to 1 backwards  
 
 
-String.ahk  ---  implements useful string functions and lets strings be treated as objects
+## String.ahk
+Implements useful string functions and lets strings be treated as objects  
 
 Native AHK functions as methods:
+```
 String.ToUpper()
 	  .ToLower()
 	  .ToTitle()
@@ -24,7 +29,9 @@ String.ToUpper()
 	  .Compare(comparison [, CaseSense])
 	  .Sort([, Options, Function])
       .Find(Needle [, CaseSense, StartingPos, Occurrence])
+```
 
+```
 String[n] => gets nth character
 String[i,j] => substring from i to j
 String.Length
@@ -49,3 +56,4 @@ String.RPad(count)
 
 String.Center([fill:=" ", symFill:=0, delim:="`n", exclude:="`r", width])
 String.Right([fill:=" ", delim:="`n", exclude:="`r"])
+```
