@@ -534,6 +534,6 @@ Class String2 {
 		delim := this.string, s := ""
 		for v in words
 			s .= v . delim
-		return SubStr(s,1,-1)
+		return SubStr(s,1,-StrLen(this.string))
 	}
 }
