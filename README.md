@@ -56,4 +56,3 @@ String.RPad(count)
 
 String.Center([fill:=" ", symFill:=0, delim:="`n", exclude:="`r", width])
 String.Right([fill:=" ", delim:="`n", exclude:="`r"])
-```
