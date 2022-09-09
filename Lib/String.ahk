@@ -7,7 +7,7 @@
 	tidbit		--- Author of "String Things - Common String & Array Functions", from which
 					I copied/based a lot of methods
 	Contributors to "String Things": AfterLemon, Bon, Lexikos, MasterFocus, Rseding91, Verdlin
-	
+
 	Description:
 	A compilation of useful string methods. Also lets strings be treated as objects.
 
@@ -18,15 +18,15 @@
 	|============================================================================|
 	| Native functions as methods:                                               |
 	| String.ToUpper()                                                           |
-	|		.ToLower()                                                           |
-	|		.ToTitle()                                                           |
-	|		.Split([Delimiters, OmitChars, MaxParts])                            |
-	|		.Replace(Needle [, ReplaceText, CaseSense, &OutputVarCount, Limit])  |
-	|		.Trim([OmitChars])                                                   |
-	|		.LTrim([OmitChars])                                                  |
-	|		.RTrim([OmitChars])                                                  |
-	|		.Compare(comparison [, CaseSense])                                   |
-	|		.Sort([, Options, Function])                                         |
+	|       .ToLower()                                                           |
+	|       .ToTitle()                                                           |
+	|       .Split([Delimiters, OmitChars, MaxParts])                            |
+	|       .Replace(Needle [, ReplaceText, CaseSense, &OutputVarCount, Limit])  |
+	|       .Trim([OmitChars])                                                   |
+	|       .LTrim([OmitChars])                                                  |
+	|       .RTrim([OmitChars])                                                  |
+	|       .Compare(comparison [, CaseSense])                                   |
+	|       .Sort([, Options, Function])                                         |
 	|       .Find(Needle [, CaseSense, StartingPos, Occurrence])                 |
 	|                                                                            |
 	| String[n] => gets nth character                                            |
@@ -91,23 +91,23 @@ Class String2 {
 		}
 	}
 	; Native functions implemented as methods for the String object
-    static Length(str) => StrLen(str)
-	static ToUpper() => StrUpper(this.string)
-	static ToLower() => StrLower(this.string)
-	static ToTitle() => StrTitle(this.string)
-	static Split(args*) => StrSplit(this.string, args*)
+	static Length(str)    => StrLen(str)
+	static ToUpper()      => StrUpper(this.string)
+	static ToLower()      => StrLower(this.string)
+	static ToTitle()      => StrTitle(this.string)
+	static Split(args*)   => StrSplit(this.string, args*)
 	static Replace(args*) => StrReplace(this.string, args*)
-	static Trim(args*) => Trim(this.string, args*)
-	static LTrim(args*) => LTrim(this.string, args*)
-	static RTrim(args*) => RTrim(this.string, args*)
+	static Trim(args*)    => Trim(this.string, args*)
+	static LTrim(args*)   => LTrim(this.string, args*)
+	static RTrim(args*)   => RTrim(this.string, args*)
 	static Compare(args*) => StrCompare(this.string, args*)
-	static Sort(args*) => Sort(this.string, args*)
-	static Find(args*) => InStr(this.string, args*)
+	static Sort(args*)    => Sort(this.string, args*)
+	static Find(args*)    => InStr(this.string, args*)
 
 	/*
 		LPad
 		Add character(s) to left side of the input string.
-		
+
 		padding = Text you want to add
 		count   = How many times do you want to repeat adding to the left side.
 
@@ -120,12 +120,12 @@ Class String2 {
 			Loop count
 				str := padding str
 		}
-		Return str
+		return str
 	}
 	/*
 		RPad
 		Add character(s) to right side of the input string.
-		
+
 		padding = Text you want to add
 		count   = How many times do you want to repeat adding to the left side.
 	*/
@@ -135,7 +135,7 @@ Class String2 {
 			Loop count
 				str := str padding
 		}
-		Return str
+		return str
 	}
 	/*
 		Count
@@ -178,7 +178,7 @@ Class String2 {
 		Length := StrLen(this.string)
 		((pos > 0) ? (pos2 := pos - 1) : (((pos = 0) ? (pos2 := StrLen(this.string),Length := 0) : (pos2 := pos))))
 		output := SubStr(this.string, 1, pos2) . insert . SubStr(this.string, pos, Length)
-		If (StrLen(output) > StrLen(this.string) + StrLen(insert))
+		if (StrLen(output) > StrLen(this.string) + StrLen(insert))
 			((Abs(pos) <= StrLen(this.string)/2) ? (output := SubStr(output, 1, pos2 - 1) . SubStr(output, pos + 1, StrLen(this.string))) : (output := SubStr(output, 1, pos2 - StrLen(insert) - 2) . SubStr(output, pos - StrLen(insert), StrLen(this.string))))
 		return output
 	}
@@ -195,13 +195,13 @@ Class String2 {
 		output: "aaazzzccc"
 	*/
 	static Overwrite(overwrite, pos:=1) {
-	If (Abs(pos) > StrLen(this.string))
+	if (Abs(pos) > StrLen(this.string))
 		return 0
-	else If (pos>0)
+	else if (pos>0)
 		return SubStr(this.string, 1, pos-1) . overwrite . SubStr(this.string, pos+StrLen(overwrite))
-	else If (pos<0)
+	else if (pos<0)
 		return SubStr(this.string, 1, pos) . overwrite . SubStr(this.string " ",(Abs(pos) > StrLen(overwrite) ? pos+StrLen(overwrite) : 0), Abs(pos+StrLen(overwrite)))
-	else If (pos=0)
+	else if (pos=0)
 		return this.string . overwrite
 	}
 
@@ -218,11 +218,11 @@ Class String2 {
 	*/
 	static Delete(start:=1, length:=1) {
 		if (Abs(start+length) > StrLen(this.string))
-		   return ""
+			return ""
 		if (start>0)
-		   return SubStr(this.string, 1, start-1) . SubStr(this.string, start + length)
+			return SubStr(this.string, 1, start-1) . SubStr(this.string, start + length)
 		else if (start<=0)
-		   return SubStr(this.string " ", 1, start-length-1) SubStr(this.string " ", ((start<0) ? start : 0), -1)
+			return SubStr(this.string " ", 1, start-length-1) SubStr(this.string " ", ((start<0) ? start : 0), -1)
 	}
 
 	/*
@@ -242,46 +242,46 @@ Class String2 {
 		, UnicodeModifier := 2
 		, VarSetStrCapacity(&out, (StrLen(string) + (Ceil(StrLen(string) / columnSpan) * (column + CharLength + 1)))+2)
 		, A := StrPtr(out)
-		
-		loop parse, string, "`n", "`r" {
-			If ((FieldLength := StrLen(ALoopField := A_LoopField)) > column) {
+
+		Loop parse, string, "`n", "`r" {
+			if ((FieldLength := StrLen(ALoopField := A_LoopField)) > column) {
 				DllCall("RtlMoveMemory", "Ptr", A, "ptr", StrPtr(ALoopField), "UInt", column * UnicodeModifier)
 				, A += column * UnicodeModifier
 				, NumPut("UShort", 10, A)
 				, A += UnicodeModifier
 				, Pos := column
-	
+
 				While (Pos < FieldLength) {
-					If CharLength
+					if CharLength
 						DllCall("RtlMoveMemory", "Ptr", A, "ptr", StrPtr(indentChar), "UInt", CharLength * UnicodeModifier)
 						, A += CharLength * UnicodeModifier
-					
-					If (Pos + columnSpan > FieldLength)
+
+					if (Pos + columnSpan > FieldLength)
 						DllCall("RtlMoveMemory", "Ptr", A, "ptr", StrPtr(ALoopField) + (Pos * UnicodeModifier), "UInt", (FieldLength - Pos) * UnicodeModifier)
 						, A += (FieldLength - Pos) * UnicodeModifier
 						, Pos += FieldLength - Pos
-					Else
+					else
 						DllCall("RtlMoveMemory", "Ptr", A, "ptr", StrPtr(ALoopField) + (Pos * UnicodeModifier), "UInt", columnSpan * UnicodeModifier)
 						, A += columnSpan * UnicodeModifier
 						, Pos += columnSpan
-					
+
 					NumPut("UShort", 10, A)
 					, A += UnicodeModifier
 				}
-			} Else
+			} else
 				DllCall("RtlMoveMemory", "Ptr", A, "ptr", StrPtr(ALoopField), "UInt", FieldLength * UnicodeModifier)
 				, A += FieldLength * UnicodeModifier
 				, NumPut("UShort", 10, A)
 				, A += UnicodeModifier
 		}
 		VarSetStrCapacity(&out, -1)
-		Return SubStr(out,1, -1)
+		return SubStr(out,1, -1)
 	}
 
 	/*
 		WordWrap
 		Wrap the string so each line is never more than a specified length.
-   		Unlike LineWrap(), this method takes into account words separated by a space.
+		Unlike LineWrap(), this method takes into account words separated by a space.
 
 		input: "Apples are a round fruit, usually red.".WordWrap(20, "---")
 		output: "Apples are a round
@@ -293,20 +293,20 @@ Class String2 {
 			throw TypeError("WordWrap: argument 'column' must be an integer", -2)
 		out := ""
 		indentLength := StrLen(indentChar)
-     
-		Loop Parse, this.string, "`n", "`r" {
-			If (StrLen(A_LoopField) > column) {
+
+		Loop parse, this.string, "`n", "`r" {
+			if (StrLen(A_LoopField) > column) {
 				pos := 1
-				Loop Parse, A_LoopField, " "
-					If (pos + (loopLength := StrLen(A_LoopField)) <= column)
+				Loop parse, A_LoopField, " "
+					if (pos + (LoopLength := StrLen(A_LoopField)) <= column)
 						out .= (A_Index = 1 ? "" : " ") A_LoopField
-						, pos += loopLength + 1
-					Else
-						pos := loopLength + 1 + indentLength
+						, pos += LoopLength + 1
+					else
+						pos := LoopLength + 1 + indentLength
 						, out .= "`n" indentChar A_LoopField
-				 
+
 				out .= "`n"
-			} Else
+			} else
 				out .= A_LoopField "`n"
 		}
 		return SubStr(out, 1, -1)
@@ -386,7 +386,7 @@ Class String2 {
 				if A_Index == count
 					new .= delim
 				Continue
-			} else 
+			} else
 				(new .= A_LoopField . delim)
 		}
 
@@ -430,7 +430,7 @@ Class String2 {
 		else if (line=0)
 			throw Error("ReadLine: line number cannot be 0", -2)
 
-		loop parse, String, delim, exclude {
+		Loop parse, String, delim, exclude {
 			if A_Index = line
 				return A_LoopField
 		}
@@ -443,16 +443,16 @@ Class String2 {
 
 		input: "aaa|bbb|||ccc||ddd".RemoveDuplicates("|")
 		output: "aaa|bbb|ccc|ddd"
-	*/	
+	*/
 	static RemoveDuplicates(delim:="`n") => RegExReplace(this.string, "(" RegExReplace(delim, "([\\.*?+\[\{|\()^$])", "\$1") ")+", "$1")
-	
+
 	/*
 		Contains
 		Checks whether the string contains any of the needles provided.
 
 		input: "aaa|bbb|ccc|ddd".Contains("eee", "aaa")
 		output: 1 (although the string doesn't contain "eee", it DOES contain "aaa")
-	*/	
+	*/
 	static Contains(needles*) {
 		for needle in needles
 			if InStr(this.string, needle)
@@ -471,7 +471,7 @@ Class String2 {
 		exclude = The text you want to ignore when defining a line.
 		width	= Can be specified to add extra padding to the sides
 
-		
+
 		example: "aaa`na`naaaaaaaa".Center()
 		output:  "aaa
 				   a
@@ -479,15 +479,15 @@ Class String2 {
 	*/
 	static Center(fill:=" ", symFill:=0, delim:="`n", exclude:="`r", width?) {
 		fill:=SubStr(fill,1,1)
-		loop parse, this.string, delim, exclude
+		Loop parse, this.string, delim, exclude
 			if (StrLen(A_LoopField)>longest)
 				longest:=StrLen(A_LoopField)
 		if !IsSet(width)
 			longest := Max(longest, width)
-		loop parse, this.string, %delim%, %exclude%
+		Loop parse, this.string, %delim%, %exclude%
 		{
-			filled:=""		
-			loop (longest-StrLen(A_LoopField))//2
+			filled:=""
+			Loop (longest-StrLen(A_LoopField))//2
 				filled.=fill
 			new.= filled A_LoopField ((symFill=1) ? filled : "") "`n"
 		}
@@ -504,8 +504,8 @@ Class String2 {
 
 		input: "aaa`na`naaaaaaaa".Right()
 		output: "     aaa
-						a
-				 aaaaaaaa"
+		|               a
+		|        aaaaaaaa"
 	*/
 	static Right(fill:=" ", delim:="`n", exclude:="`r") {
 		fill:=SubStr(fill,1,1), longest := 0
@@ -514,7 +514,7 @@ Class String2 {
 				longest:=StrLen(A_LoopField)
 		Loop parse, this.string, delim, exclude {
 			filled:=""
-			loop Abs(longest-StrLen(A_LoopField))
+			Loop Abs(longest-StrLen(A_LoopField))
 				filled.=fill
 			new.= filled A_LoopField "`n"
 		}
