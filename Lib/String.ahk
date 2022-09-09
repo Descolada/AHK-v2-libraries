@@ -12,7 +12,7 @@
 	A compilation of useful string methods. Also lets strings be treated as objects.
 
 	These methods cannot be used as stand-alone. To do that, you must add another argument
-	'string' to the function and replace all occurrences of 'this.string' with 'string'.
+	'string' to the function and replace all occurrences of 'this' with 'string'.
 	.-==========================================================================-.
 	| Methods                                                                    |
 	|============================================================================|
