@@ -104,16 +104,14 @@ Class String2 {
 	static Sort(args*)    => Sort(this.string, args*)
 	static Find(args*)    => InStr(this.string, args*)
 
-	/*
-		LPad
-		Add character(s) to left side of the input string.
-
-		padding = Text you want to add
-		count   = How many times do you want to repeat adding to the left side.
-
-		example: "aaa".LPad("+", 5)
-		output: +++++aaa
-	*/
+	/**
+	 * Add character(s) to left side of the input string.
+	 * example: "aaa".LPad("+", 5)
+	 * output: +++++aaa
+	 * @param padding Text you want to add
+	 * @param count How many times do you want to repeat adding to the left side.
+	 * @returns string
+	 */
 	static LPad(padding, count:=1) {
 		str := this.string
 		if (count>0) {
@@ -122,13 +120,15 @@ Class String2 {
 		}
 		return str
 	}
-	/*
-		RPad
-		Add character(s) to right side of the input string.
 
-		padding = Text you want to add
-		count   = How many times do you want to repeat adding to the left side.
-	*/
+	/**
+	 * Add character(s) to right side of the input string.
+	 * example: "aaa".RPad("+", 5)
+	 * output: aaa+++++
+	 * @param padding Text you want to add
+	 * @param count How many times do you want to repeat adding to the left side.
+	 * @returns string
+	 */
 	static RPad(padding, count:=1) {
 		str := this.string
 		if (count>0) {
@@ -137,66 +137,78 @@ Class String2 {
 		}
 		return str
 	}
-	/*
-		Count
-		Count the number of occurrences of needle in the string
 
-		input: "12234".Count("2")
-		output: 2
-	*/
+	/**
+	 * Count the number of occurrences of needle in the string
+	 * input: "12234".Count("2")
+	 * output: 2
+	 * @param needle Text to search for
+	 * @param caseSensitive
+	 * @returns integer
+	 */
 	static Count(needle, caseSensitive:=False) {
-		StrReplace(this.string, needle,,caseSensitive, &count)
+		StrReplace(this.string, needle,, caseSensitive, &count)
 		return count+1
 	}
 
-	/*
-		Repeat
-		Duplicate the string 'count' times.
-
-		input: "abc".Repeat(3)
-		output: "abcabcabc"
-	*/
+	/**
+	 * Duplicate the string 'count' times.
+	 * input: "abc".Repeat(3)
+	 * output: "abcabcabc"
+	 * @param count {int}
+	 * @returns string
+	 */
 	static Repeat(count) => StrReplace(Format("{:" count "}",""), " ", this.string)
 
-	/*
-		Reverse
-		Reverse the string.
-	*/
+	/**
+	 * Reverse the string.
+	 * @returns string
+	 */
 	static Reverse() {
 		DllCall("msvcrt\_wcsrev", "str", str := this.string, "CDecl str")
 		return str
 	}
 
-	/*
-		Insert
-		Insert the string inside 'insert' into position 'pos'
-
-		input: "abc".Insert("d", 2)
-		output: "adbc"
-	*/
+	/**
+	 * Insert the string inside 'insert' into position 'pos'
+	 * input: "abc".Insert("d", 2)
+	 * output: "adbc"
+	 * @param insert The text to insert
+	 * @param pos {int}
+	 */
 	static Insert(insert, pos:=1) {
 		Length := StrLen(this.string)
-		((pos > 0) ? (pos2 := pos - 1) : (((pos = 0) ? (pos2 := StrLen(this.string),Length := 0) : (pos2 := pos))))
+		((pos > 0) ;Comment about the formatting: ternaries go expression by expression, `pos2 := StrLen(this.string), Length := 0` are two expressions, so they should be in (), `pos2 := pos - 1` though, is already a single expression, so it doesn't need to be in () - Axlefublr
+			? pos2 := pos - 1
+			: (pos = 0
+				? (pos2 := StrLen(this.string), Length := 0)
+				: pos2 := pos
+				)
+		)
 		output := SubStr(this.string, 1, pos2) . insert . SubStr(this.string, pos, Length)
-		if (StrLen(output) > StrLen(this.string) + StrLen(insert))
-			((Abs(pos) <= StrLen(this.string)/2) ? (output := SubStr(output, 1, pos2 - 1) . SubStr(output, pos + 1, StrLen(this.string))) : (output := SubStr(output, 1, pos2 - StrLen(insert) - 2) . SubStr(output, pos - StrLen(insert), StrLen(this.string))))
+		if (StrLen(output) > StrLen(this.string) + StrLen(insert)) ;No {} around the if needed, because the ternary is considered a single expression, and by extension, a single line - Axlefublr
+			((Abs(pos) <= StrLen(this.string)/2)
+				? (output := SubStr(output, 1, pos2 - 1)
+					. SubStr(output, pos + 1, StrLen(this.string))
+				)
+				: (output := SubStr(output, 1, pos2 - StrLen(insert) - 2)
+					. SubStr(output, pos - StrLen(insert), StrLen(this.string))
+				)
+			)
 		return output
 	}
 
-	/*
-		Overwrite
-		Replace part of the string with the string in 'overwrite' starting from position 'pos'
-
-		overwrite = Text to insert.
-		pos       = The position where to begin overwriting. 0 may be used to overwrite
-					at the very end, -1 will offset 1 from the end, and so on.
-
-		input: "aaabbbccc".Overwrite("zzz", 4)
-		output: "aaazzzccc"
-	*/
+	/**
+	 * Replace part of the string with the string in 'overwrite' starting from position 'pos'
+	 * input: "aaabbbccc".Overwrite("zzz", 4)
+	 * output: "aaazzzccc"
+	 * @param overwrite Text to insert.
+	 * @param pos The position where to begin overwriting. 0 may be used to overwrite at the very end, -1 will offset 1 from the end, and so on.
+	 * @return string
+	 */
 	static Overwrite(overwrite, pos:=1) {
 	if (Abs(pos) > StrLen(this.string))
-		return 0
+		return "" ;We're expecting a string, we should get a string - Axlefublr
 	else if (pos>0)
 		return SubStr(this.string, 1, pos-1) . overwrite . SubStr(this.string, pos+StrLen(overwrite))
 	else if (pos<0)
@@ -205,17 +217,13 @@ Class String2 {
 		return this.string . overwrite
 	}
 
-
-	/*
-		Delete
-		Delete a range of characters from the specified string.
-
-		start  = The position where to start deleting.
-		length = How many characters to delete.
-
-		input: "aaabbbccc".Delete(4, 3)
-		output: "aaaccc"
-	*/
+	/**
+	 * Delete a range of characters from the specified string.
+	 * input: "aaabbbccc".Delete(4, 3)
+	 * output: "aaaccc"
+	 * @param start The position where to start deleting.
+	 * @param length How many characters to delete.
+	 */
 	static Delete(start:=1, length:=1) {
 		if (Abs(start+length) > StrLen(this.string))
 			return ""
@@ -225,15 +233,15 @@ Class String2 {
 			return SubStr(this.string " ", 1, start-length-1) SubStr(this.string " ", ((start<0) ? start : 0), -1)
 	}
 
-	/*
-		LineWrap
-		Wrap the string so each line is never more than a specified length.
-
-		input: "Apples are a round fruit, usually red.".LineWrap(20, "---")
-		output: "Apples are a round f
-				---ruit, usually red
-				---."
-	*/
+	/**
+	 * Wrap the string so each line is never more than a specified length.
+	 * input: "Apples are a round fruit, usually red.".LineWrap(20, "---")
+	 * output: "Apples are a round f
+	 *          ---ruit, usually red."
+	 * @param column Specify a maximum length per line
+	 * @param indentChar Choose a character to indent the following lines with
+	 * @return string
+	 */
 	static LineWrap(column:=56, indentChar:="") {
 		string := this.string
 		, CharLength := StrLen(indentChar)
@@ -278,16 +286,17 @@ Class String2 {
 		return SubStr(out,1, -1)
 	}
 
-	/*
-		WordWrap
-		Wrap the string so each line is never more than a specified length.
-		Unlike LineWrap(), this method takes into account words separated by a space.
-
-		input: "Apples are a round fruit, usually red.".WordWrap(20, "---")
-		output: "Apples are a round
-				---fruit, usually
-				---red."
-	*/
+	/**
+	 * Wrap the string so each line is never more than a specified length.
+	 * Unlike LineWrap(), this method takes into account words separated by a space.
+	 * input: "Apples are a round fruit, usually red.".WordWrap(20, "---")
+	 * output: "Apples are a round
+	 *          ---fruit, usually
+	 *          ---red."
+	 * @param column Specify a maximum length per line
+	 * @param indentChar Choose a character to indent the following lines with
+	 * @return string
+	 */
 	static WordWrap(column:=56, indentChar:="") {
 		if !IsInteger(column)
 			throw TypeError("WordWrap: argument 'column' must be an integer", -2)
@@ -312,22 +321,19 @@ Class String2 {
 		return SubStr(out, 1, -1)
 	}
 
-	/*
-		InsertLine
-		Insert a line of text at the specified line number.
-		The line you specify is pushed down 1 and your text is inserted at its
-		position. A "line" can be determined by the delimiter parameter. Not
-		necessarily just a `r or `n. But perhaps you want a | as your "line".
-
-		insert  = Text you want to insert.
-		line    = What line number to insert at. Use a 0 or negative to start
-					inserting from the end.
-		delim   = The string which defines a "line".
-		exclude = The text you want to ignore when defining a line.
-
-		input: "aaa|ccc|ddd".InsertLine("bbb", 2, "|")
-		output: "aaa|bbb|ccc|ddd"
-	*/
+	/**
+	* Insert a line of text at the specified line number.
+	* The line you specify is pushed down 1 and your text is inserted at its
+	* position. A "line" can be determined by the delimiter parameter. Not
+	* necessarily just a `r or `n. But perhaps you want a | as your "line".
+	* input: "aaa|ccc|ddd".InsertLine("bbb", 2, "|")
+	* output: "aaa|bbb|ccc|ddd"
+	* @param insert Text you want to insert.
+	* @param line What line number to insert at. Use a 0 or negative to start inserting from the end.
+	* @param delim The string which defines a "line".
+	* @param exclude The text you want to ignore when defining a line.
+	* @return string
+	 */
 	static InsertLine(insert, line, delim:="`n", exclude:="`r") {
 		into := this.string, new := ""
 		count := into.Count(delim)
@@ -353,23 +359,19 @@ Class String2 {
 		return RTrim(new, delim)
 	}
 
-
-	/*
-		DeleteLine
-		Delete a line of text at the specified line number.
-		The line you specify is deleted and all lines below it are shifted up.
-		A "line" can be determined by the delimiter parameter. Not necessarily
-		just a `r or `n. But perhaps you want a | as your "line".
-
-		string  = Text you want to delete the line from.
-		line    = What line to delete. You may use -1 for the last line and a negative
-					an offset from the last. -2 would be the second to the last.
-		delim   = The string which defines a "line".
-		exclude = The text you want to ignore when defining a line.
-
-		input: "aaa|bbb|777|ccc".DeleteLine(3, "|")
-		output: "aaa|bbb|ccc"
-	*/
+	/**
+	 * Delete a line of text at the specified line number.
+	 * The line you specify is deleted and all lines below it are shifted up.
+	 * A "line" can be determined by the delimiter parameter. Not necessarily
+	 * just a `r or `n. But perhaps you want a | as your "line".
+	 * input: "aaa|bbb|777|ccc".DeleteLine(3, "|")
+	 * output: "aaa|bbb|ccc"
+	 * @param string Text you want to delete the line from.
+	 * @param line What line to delete. You may use -1 for the last line and a negative an offset from the last. -2 would be the second to the last.
+	 * @param delim The string which defines a "line".
+	 * @param exclude The text you want to ignore when defining a line.
+	 * @return string
+	 */
 	static DeleteLine(line, delim:="`n", exclude:="`r") {
 		string := this.string, new := ""
 		; checks to see if we are trying to delete a non-existing line.
@@ -393,28 +395,17 @@ Class String2 {
 		return SubStr(new,1,-StrLen(delim))
 	}
 
-
-	/*
-		ReadLine
-		Read the content of the specified line in a string. A "line" can be
-		determined by the delimiter parameter. Not necessarily just a `r or `n.
-		But perhaps you want a | as your "line".
-
-		line    = What line to read*.
-		delim   = The string which defines a "line".
-		exclude = The text you want to ignore when defining a line.
-
-		* For the Line parameter, you may specify the following:
-			"L" = The last line.
-			"R" = A random line.
-			Otherwise specify a number to get that line.
-			You may specify a negative number to get the line starting from
-			the end. -1 is the same as "L", the last. -2 would be the second to
-			the last, and so on.
-
-		input: "aaa|bbb|ccc|ddd|eee|fff".ReadLine(4, "|")
-		output: "ddd"
-	*/
+	/**
+	 * Read the content of the specified line in a string. A "line" can be
+	 * determined by the delimiter parameter. Not necessarily just a `r or `n.
+	 * But perhaps you want a | as your "line".
+	 * input: "aaa|bbb|ccc|ddd|eee|fff".ReadLine(4, "|")
+	 * output: "ddd"
+	 * @param line What line to read*. "L" = The last line. "R" = A random line. Otherwise specify a number to get that line. You may specify a negative number to get the line starting from the end. -1 is the same as "L", the last. -2 would be the second to the last, and so on.
+	 * @param delim The string which defines a "line".
+	 * @param exclude The text you want to ignore when defining a line.
+	 * @return string
+	 */
 	static ReadLine(line, delim:="`n", exclude:="`r") {
 		string := this.string, out := ""
 		count:=String.Count(delim)
@@ -437,22 +428,21 @@ Class String2 {
 		throw Error("ReadLine: something went wrong, the line was not found", -2)
 	}
 
-	/*
-		RemoveDuplicates
-		Replace all consecutive occurrences of 'delim' with only one occurrence.
-
-		input: "aaa|bbb|||ccc||ddd".RemoveDuplicates("|")
-		output: "aaa|bbb|ccc|ddd"
-	*/
+	/**
+	 * Replace all consecutive occurrences of 'delim' with only one occurrence.
+	 * input: "aaa|bbb|||ccc||ddd".RemoveDuplicates("|")
+	 * output: "aaa|bbb|ccc|ddd"
+	 * @param delim
+	 */
 	static RemoveDuplicates(delim:="`n") => RegExReplace(this.string, "(" RegExReplace(delim, "([\\.*?+\[\{|\()^$])", "\$1") ")+", "$1")
 
-	/*
-		Contains
-		Checks whether the string contains any of the needles provided.
-
-		input: "aaa|bbb|ccc|ddd".Contains("eee", "aaa")
-		output: 1 (although the string doesn't contain "eee", it DOES contain "aaa")
-	*/
+	/**
+	 * Checks whether the string contains any of the needles provided.
+	 * input: "aaa|bbb|ccc|ddd".Contains("eee", "aaa")
+	 * output: 1 (although the string doesn't contain "eee", it DOES contain "aaa")
+	 * @param needles
+	 * @return
+	 */
 	static Contains(needles*) {
 		for needle in needles
 			if InStr(this.string, needle)
@@ -460,23 +450,20 @@ Class String2 {
 		return 0
 	}
 
-	/*
-		Center
-		Centers a block of text to the longest item in the string.
-
-		text    = The text you would like to center.
-		fill    = A single character to use as the padding to center text.
-		symFill = 0: Just fill in the left half. 1: Fill in both sides.
-		delim   = The string which defines a "line".
-		exclude = The text you want to ignore when defining a line.
-		width	= Can be specified to add extra padding to the sides
-
-
-		example: "aaa`na`naaaaaaaa".Center()
-		output:  "aaa
-				   a
-				aaaaaaaa"
-	*/
+	/**
+	 * Centers a block of text to the longest item in the string.
+	 * example: "aaa`na`naaaaaaaa".Center()
+	 * output: "aaa
+	 *           a
+	 *       aaaaaaaa"
+	 * @param text The text you would like to center.
+	 * @param fill A single character to use as the padding to center text.
+	 * @param symFill 0: Just fill in the left half. 1: Fill in both sides.
+	 * @param delim The string which defines a "line".
+	 * @param exclude The text you want to ignore when defining a line.
+	 * @param width Can be specified to add extra padding to the sides
+	 * @return string
+	 */
 	static Center(fill:=" ", symFill:=0, delim:="`n", exclude:="`r", width?) {
 		fill:=SubStr(fill,1,1)
 		Loop parse, this.string, delim, exclude
@@ -494,19 +481,17 @@ Class String2 {
 		return rtrim(new,"`r`n")
 	}
 
-	/*
-		Right
-		Align a block of text to the right side.
-
-		fill    = A single character to use as to push the text to the right.
-		delim   = The string which defines a "line".
-		exclude = The text you want to ignore when defining a line.
-
-		input: "aaa`na`naaaaaaaa".Right()
-		output: "     aaa
-		|               a
-		|        aaaaaaaa"
-	*/
+	/**
+	 * Align a block of text to the right side.
+	 * input: "aaa`na`naaaaaaaa".Right()
+	 * output: "     aaa
+	 *                 a
+	 *          aaaaaaaa"
+	 * @param fill A single character to use as to push the text to the right.
+	 * @param delim The string which defines a "line".
+	 * @param exclude The text you want to ignore when defining a line.
+	 * @return string
+	 */
 	static Right(fill:=" ", delim:="`n", exclude:="`r") {
 		fill:=SubStr(fill,1,1), longest := 0
 		Loop parse, this.string, delim, exclude
@@ -521,15 +506,13 @@ Class String2 {
 		return RTrim(new,"`r`n")
 	}
 
-	/*
-		Concat
-		Join a list of strings together to form a string separated by delimiter this was called with.
-
-		words*   = A list of strings separated by a comma.
-
-		input: "|".Concat("111", "222", "333", "abc")
-		output: "111|222|333|abc"
-	*/
+	/**
+	 * Join a list of strings together to form a string separated by delimiter this was called with.
+	 * input: "|".Concat("111", "222", "333", "abc")
+	 * output: "111|222|333|abc"
+	 * @param words A list of strings separated by a comma.
+	 * @return string
+	 */
 	static Concat(words*) {
 		delim := this.string, s := ""
 		for v in words

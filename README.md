@@ -1,33 +1,33 @@
 # AHK-v2-libraries
 # Useful libraries for AHK v2
 
-## Misc.ahk  
-Implements useful miscellaneous functions 
+## Misc.ahk
+Implements useful miscellaneous functions
 
-Range: allows looping from start to end with step.  
+Range: allows looping from start to end with step.
 ```
-Range(stop)  
-Range(start, stop [, step ])  
+Range(stop)
+Range(start, stop [, step ])
 ```
-Usage: `for v in Range(2,10)` -> loops from 2 to 10  
-`for v in Range(10,1,-1)` -> loops from 10 to 1 backwards  
+Usage: `for v in Range(2,10)` -> loops from 2 to 10
+`for v in Range(10,1,-1)` -> loops from 10 to 1 backwards
 
 
 ## String.ahk
-Implements useful string functions and lets strings be treated as objects  
+Implements useful string functions and lets strings be treated as objects
 
 Native AHK functions as methods:
 ```
 String.ToUpper()
-	  .ToLower()
-	  .ToTitle()
-	  .Split([Delimiters, OmitChars, MaxParts])
-	  .Replace(Needle [, ReplaceText, CaseSense, &OutputVarCount, Limit])
-	  .Trim([OmitChars])
-	  .LTrim([OmitChars])
+      .ToLower()
+      .ToTitle()
+      .Split([Delimiters, OmitChars, MaxParts])
+      .Replace(Needle [, ReplaceText, CaseSense, &OutputVarCount, Limit])
+      .Trim([OmitChars])
+      .LTrim([OmitChars])
       .RTrim([OmitChars])
-	  .Compare(comparison [, CaseSense])
-	  .Sort([, Options, Function])
+      .Compare(comparison [, CaseSense])
+      .Sort([, Options, Function])
       .Find(Needle [, CaseSense, StartingPos, Occurrence])
 ```
 
