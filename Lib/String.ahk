@@ -104,7 +104,7 @@ Class String2 {
 	 * output: +++++aaa
 	 * @param padding Text you want to add
 	 * @param count How many times do you want to repeat adding to the left side.
-	 * @returns string
+	 * @returns {String}
 	 */
 	static LPad(padding, count:=1) {
 		str := this
@@ -121,7 +121,7 @@ Class String2 {
 	 * output: aaa+++++
 	 * @param padding Text you want to add
 	 * @param count How many times do you want to repeat adding to the left side.
-	 * @returns string
+	 * @returns {String}
 	 */
 	static RPad(padding, count:=1) {
 		str := this
@@ -138,7 +138,7 @@ Class String2 {
 	 * output: 2
 	 * @param needle Text to search for
 	 * @param caseSensitive
-	 * @returns integer
+	 * @returns {Integer}
 	 */
 	static Count(needle, caseSensitive:=False) {
 		StrReplace(this, needle,, caseSensitive, &count)
@@ -149,14 +149,14 @@ Class String2 {
 	 * Duplicate the string 'count' times.
 	 * input: "abc".Repeat(3)
 	 * output: "abcabcabc"
-	 * @param count {int}
-	 * @returns string
+	 * @param count *Integer*
+	 * @returns {String}
 	 */
 	static Repeat(count) => StrReplace(Format("{:" count "}",""), " ", this)
 
 	/**
 	 * Reverse the string.
-	 * @returns string
+	 * @returns {String}
 	 */
 	static Reverse() {
 		DllCall("msvcrt\_wcsrev", "str", str := this, "CDecl str")
@@ -168,7 +168,8 @@ Class String2 {
 	 * input: "abc".Insert("d", 2)
 	 * output: "adbc"
 	 * @param insert The text to insert
-	 * @param pos {int}
+	 * @param pos *Integer*
+	 * @returns {String}
 	 */
 	static Insert(insert, pos:=1) {
 		Length := StrLen(this)
@@ -198,7 +199,7 @@ Class String2 {
 	 * output: "aaazzzccc"
 	 * @param overwrite Text to insert.
 	 * @param pos The position where to begin overwriting. 0 may be used to overwrite at the very end, -1 will offset 1 from the end, and so on.
-	 * @return string
+	 * @returns {String}
 	 */
 	static Overwrite(overwrite, pos:=1) {
 	if (Abs(pos) > StrLen(this))
@@ -217,6 +218,7 @@ Class String2 {
 	 * output: "aaaccc"
 	 * @param start The position where to start deleting.
 	 * @param length How many characters to delete.
+	 * @returns {String}
 	 */
 	static Delete(start:=1, length:=1) {
 		if (Abs(start+length) > StrLen(this))
@@ -234,7 +236,7 @@ Class String2 {
 	 *          ---ruit, usually red."
 	 * @param column Specify a maximum length per line
 	 * @param indentChar Choose a character to indent the following lines with
-	 * @return string
+	 * @returns {String}
 	 */
 	static LineWrap(column:=56, indentChar:="") {
 		CharLength := StrLen(indentChar)
@@ -288,7 +290,7 @@ Class String2 {
 	 *          ---red."
 	 * @param column Specify a maximum length per line
 	 * @param indentChar Choose a character to indent the following lines with
-	 * @return string
+	 * @returns {String}
 	 */
 	static WordWrap(column:=56, indentChar:="") {
 		if !IsInteger(column)
@@ -325,7 +327,7 @@ Class String2 {
 	* @param line What line number to insert at. Use a 0 or negative to start inserting from the end.
 	* @param delim The string which defines a "line".
 	* @param exclude The text you want to ignore when defining a line.
-	* @return string
+	* @returns {String}
 	 */
 	static InsertLine(insert, line, delim:="`n", exclude:="`r") {
 		into := this, new := ""
@@ -363,7 +365,7 @@ Class String2 {
 	 * @param line What line to delete. You may use -1 for the last line and a negative an offset from the last. -2 would be the second to the last.
 	 * @param delim The string which defines a "line".
 	 * @param exclude The text you want to ignore when defining a line.
-	 * @return string
+	 * @returns {String}
 	 */
 	static DeleteLine(line, delim:="`n", exclude:="`r") {
 		new := ""
@@ -397,7 +399,7 @@ Class String2 {
 	 * @param line What line to read*. "L" = The last line. "R" = A random line. Otherwise specify a number to get that line. You may specify a negative number to get the line starting from the end. -1 is the same as "L", the last. -2 would be the second to the last, and so on.
 	 * @param delim The string which defines a "line".
 	 * @param exclude The text you want to ignore when defining a line.
-	 * @return string
+	 * @returns {String}
 	 */
 	static ReadLine(line, delim:="`n", exclude:="`r") {
 		out := "", count:=String.Count(delim)
@@ -424,7 +426,7 @@ Class String2 {
 	 * Replace all consecutive occurrences of 'delim' with only one occurrence.
 	 * input: "aaa|bbb|||ccc||ddd".RemoveDuplicates("|")
 	 * output: "aaa|bbb|ccc|ddd"
-	 * @param delim
+	 * @param delim *String*
 	 */
 	static RemoveDuplicates(delim:="`n") => RegExReplace(this, "(" RegExReplace(delim, "([\\.*?+\[\{|\()^$])", "\$1") ")+", "$1")
 
@@ -433,7 +435,7 @@ Class String2 {
 	 * input: "aaa|bbb|ccc|ddd".Contains("eee", "aaa")
 	 * output: 1 (although the string doesn't contain "eee", it DOES contain "aaa")
 	 * @param needles
-	 * @return
+	 * @returns {Boolean}
 	 */
 	static Contains(needles*) {
 		for needle in needles
@@ -454,7 +456,7 @@ Class String2 {
 	 * @param delim The string which defines a "line".
 	 * @param exclude The text you want to ignore when defining a line.
 	 * @param width Can be specified to add extra padding to the sides
-	 * @return string
+	 * @returns {String}
 	 */
 	static Center(fill:=" ", symFill:=0, delim:="`n", exclude:="`r", width?) {
 		fill:=SubStr(fill,1,1)
@@ -482,7 +484,7 @@ Class String2 {
 	 * @param fill A single character to use as to push the text to the right.
 	 * @param delim The string which defines a "line".
 	 * @param exclude The text you want to ignore when defining a line.
-	 * @return string
+	 * @returns {String}
 	 */
 	static Right(fill:=" ", delim:="`n", exclude:="`r") {
 		fill:=SubStr(fill,1,1), longest := 0
@@ -503,7 +505,7 @@ Class String2 {
 	 * input: "|".Concat("111", "222", "333", "abc")
 	 * output: "111|222|333|abc"
 	 * @param words A list of strings separated by a comma.
-	 * @return string
+	 * @returns {String}
 	 */
 	static Concat(words*) {
 		delim := this, s := ""
