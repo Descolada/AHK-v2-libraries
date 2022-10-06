@@ -4,7 +4,7 @@
 ## Misc.ahk
 Implements useful miscellaneous functions
 
-###Range
+### Range
 Allows looping from start to end with step.
 ```
 Range(stop)
@@ -13,13 +13,13 @@ Range(start, stop [, step ])
 Usage: `for v in Range(2,10)` -> loops from 2 to 10
 `for v in Range(10,1,-1)` -> loops from 10 to 1 backwards
 
-###Swap
+### Swap
 Swaps the values of two variables
 ```
 Swap(&a, &b)
 ```
 
-###Print
+### Print
 Prints the formatted value of a variable (number, string, array, map, object)
 ```
 Print(value?, func?, newline?)
@@ -73,13 +73,14 @@ String.Right([fill:=" ", delim:="`n", exclude:="`r"])
 ## Array.ahk
 Implements useful array functions
 
+```
 Array.Slice(start:=1, end:=0, step:=1)  => Returns a section of the array from 'start' to 'end', 
     optionally skipping elements with 'step'.
 Array.Swap(a, b)                        => Swaps elements at indexes a and b.
 Array.Map(func)                         => Applies a function to each element in the array.
 Array.Filter(func)                      => Keeps only values that satisfy the provided function
 Array.Reduce(func, initialValue?)       => Applies a function cumulatively to all the values in 
-        the array, with an optional initial value.
+    the array, with an optional initial value.
 Array.IndexOf(value, start:=1)          => Finds a value in the array and returns its index.
 Array.Find(func)                        => Finds a value satisfying the provided function and returns the value.
 Array.FindIndex(func)                   => Finds a value satisfying the provided function and returns its index.
@@ -89,6 +90,7 @@ Array.Sort(Key?, Options?, Callback?)   => Sorts an array, optionally by object 
 Array.Join(delim:=",")                  => Joins all the elements to a string using the provided delimiter.
 Array.Flat()                            => Turns a nested array into a one-level array.
 Array.Extend(arr)                       => Adds the contents of another array to the end of this one.
+```
 
 ## Acc.ahk
 
