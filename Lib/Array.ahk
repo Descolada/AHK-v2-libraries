@@ -21,6 +21,7 @@
     Array.Reverse()                         => Reverses the array.
     Array.Count(value)                      => Counts the number of occurrences of a value.
     Array.Sort(Key?, Options?, Callback?)   => Sorts an array, optionally by object values.
+    Array.Shuffle()                         => Randomizes the array.
     Array.Join(delim:=",")                  => Joins all the elements to a string using the provided delimiter.
     Array.Flat()                            => Turns a nested array into a one-level array.
     Array.Extend(arr)                       => Adds the contents of another array to the end of this one.
@@ -183,6 +184,16 @@ class Array2 {
         {
             this[A_Index] := temp.%A_LoopField%.RemoveAt(1)
         }
+        return this
+    }
+    /**
+     * Randomizes the array. Slightly faster than Array.Sort(,"Random N")
+     * @returns {Array}
+     */
+    static Shuffle() {
+        len := this.Length
+        Loop len-1
+            this.Swap(A_index, Random(A_index, len))
         return this
     }
     /**
