@@ -59,7 +59,7 @@
 ; Add String2 methods and properties into String object
 ObjDefineProp := Object.Prototype.DefineProp
 for f in String2.OwnProps() {
-	if !(f ~= "__Init|__Item|Prototype|BindString|Length") {
+	if !(f ~= "__Init|__Item|Prototype|Length") {
 		if HasMethod(String2, f)
 			ObjDefineProp(String.Prototype, f, {call:String2.%f%})
 	}
