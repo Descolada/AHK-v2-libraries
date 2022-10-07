@@ -16,6 +16,8 @@ Print(["dog", "cat", "mouse"].Map((v) => "a " v))
 partial := [1,2,3,4,5].Map((a,b) => a+b)
 Print("Array: [1,2,3,4,5]`n`nAdd 3 to first element: " partial[1](3) "`nSubtract 1 from third element: " partial[3](-1))
 
+Print("Filter integer values from [1,'two','three',4,5]: " ([1,'two','three',4,5].Filter(IsInteger).Join()))
+
 Print("Sum of elements in [1,2,3,4,5]: " ([1,2,3,4,5].Reduce((a,b) => (a+b))))
 
 Print("First value in [1,2,3,4,5] that is an even number: " ([1,2,3,4,5].Find((v) => (Mod(v,2) == 0))))
