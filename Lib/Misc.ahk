@@ -82,6 +82,7 @@ Swap(&a, &b) {
  * Prints the formatted value of a variable (number, string, array, map, object)
  * @param value Optional: the variable to print. 
  *     If omitted then new settings (output function and newline) will be set.
+ *     If value is an object/class that has a ToString() method, then the result of that will be printed.
  * @param func Optional: the print function to use. Default is OutputDebug.
  *     Not providing a function will cause the output to simply be returned.
  * @param newline Optional: the newline character to use (applied to the end of the value). 
@@ -95,10 +96,7 @@ Print(value?, func?, newline?) {
 		nl := newline
 	if IsSet(value) {
 		val := IsObject(value) ? _Print(value) nl : value nl
-		if HasMethod(p)
-			p(val)
-		else
-			return val
+		return HasMethod(p) ? p(val) : val
 	}
 
 	_Print(val?) {
@@ -119,10 +117,13 @@ Print(value?, func?, newline?) {
 					out .= _Print(k) ":" _Print(v?) ", "
 				return "Map(" SubStr(out, 1, StrLen(out)-2) ")"
 			case "Object":
+				if val.HasOwnProp("ToString")
+					try return _Print(val.ToString())
 				for k, v in val.OwnProps()
 					out .= k ":" _Print(v?) ", "
 				return "{" SubStr(out, 1, StrLen(out)-2) "}"
 			default:
+				try return _Print(val.ToString())
 				return Type(val)
 		}
 	}
