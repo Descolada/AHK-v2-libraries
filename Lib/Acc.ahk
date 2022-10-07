@@ -53,6 +53,8 @@
                 CallbackFunction(oAcc, Event, EventTime)
             Unhooking of the event handler will happen once the returned object is destroyed
             (either when overwritten by a constant, or when the script closes).
+        ClearHighlights()
+            Removes all highlights created by IAccessible.Highlight
 
         Legacy methods:
         SetWinEventHook(eventMin, eventMax, pCallback)
@@ -130,7 +132,11 @@
         WaitElementExist(conditionOrPath, scope:=4, timeOut:=-1)
             Waits an element exist that matches a condition or a path. 
             Timeout less than 1 waits indefinitely, otherwise is the wait time in milliseconds
-            A timeout throws an error, otherwise the matching element is returned.
+            A timeout returns 0.
+        WaitNotExist(timeOut:=-1)
+            Waits for the element to not exist. 
+            Timeout less than 1 waits indefinitely, otherwise is the wait time in milliseconds
+            A timeout returns 0.
         Normalize(condition)
             Checks whether the current element or any of its ancestors match the condition, 
             and returns that element. If no element is found, an error is thrown.
@@ -401,6 +407,8 @@ class Acc {
         , OBJECT_HELPCHANGE:0x8010
         , OBJECT_DEFACTIONCHANGE:0x8011
         , OBJECT_ACCELERATORCHANGE:0x8012}.DefineProp("__Item", this.PropertyValueGetter)
+    
+    static __HighlightGuis := Map()
 
     class IAccessible {
         __New(oAcc, childId:=0, wId:=0) {
@@ -422,7 +430,6 @@ class Acc {
             try return this.oAcc.%Name%(this.childId)
             return this.oAcc.%Name%
         }
-
         __Item[params*] {
             get {
                 oAcc := this
@@ -457,7 +464,6 @@ class Acc {
                 return oAcc
             }
         }
-
         __Enum(varCount) {
             maxLen := this.Length, i := 0, children := this.Children
             EnumElements(&element) {
@@ -475,20 +481,18 @@ class Acc {
             }
             return (varCount = 1) ? EnumElements : EnumIndexAndElements
         }
-
         __Set(Name, Params, Value) {
             if !(SubStr(Name,3)="acc")
                 try return this.oAcc.acc%Name%[Params*] := Value
             return this.oAcc.%Name%[Params*] := Value
         }
-        
         __Call(Name, Params) {
             if !(SubStr(Name,3)="acc")
                 try return this.oAcc.acc%Name%(Params.Length?Params[1]:0)
             return this.oAcc.%Name%(Params*)
         }
-
-        Select(flags) => (this.oAcc.accSelect(flags,this.childId)) ; flags can be any of the SELECTIONFLAG
+        ; One of the SELECTIONFLAG constants
+        Select(flags) => (this.oAcc.accSelect(flags,this.childId)) 
         DoDefaultAction() => (this.oAcc.accDoDefaultAction(this.childId))
         HitTest(x, y) => (this.oAcc.accHitTest(x, y))
         Navigate(navDir) {
@@ -536,7 +540,8 @@ class Acc {
         }
 
         IsChild => (this.childId == 0 ? False : True)
-        IsSelected { ; Very slow, better to use Element.Selection
+        ; Very slow, better to use Element.Selection
+        IsSelected { 
             get {
                 try oSel := this.Parent.Selection
                 return IsSet(oSel) && this.IsEqual(oSel)
@@ -545,7 +550,10 @@ class Acc {
         Length => (this.childId == 0 ? this.oAcc.accChildCount : 0)
         Exists {
             get {
-                if ((state := this.State) == 32768) || (state == 1) || (((pos := this.Location).x==0) && (pos.y==0) && (pos.w==0) && (pos.h==0))
+                try {
+                    if ((state := this.State) == 32768) || (state == 1) || (((pos := this.Location).x==0) && (pos.y==0) && (pos.w==0) && (pos.h==0))
+                        return 0
+                } catch
                     return 0
                 return 1
             }
@@ -681,10 +689,9 @@ class Acc {
                 for i, child in element.Children {
                     if child.ValidateCondition(condition) && (--index = 0)
                         return child.DefineProp("Path", {value:path (path?",":"") i})
-                    else if scope&4
-                        try return RecursiveFind(child, condition, scope ^= 1, path (path?",":"") i)
+                    else if scope&4 && (rf := RecursiveFind(child, condition,, path (path?",":"") i))
+                        return rf 
                 }
-                throw Error("Matching Acc object not found", -2)
             }
             ReverseRecursiveFind(element, condition, scope:=4, path:="") {
                 children := element.Children, length := children.Length + 1
@@ -692,10 +699,9 @@ class Acc {
                     child := children[length-A_index]
                     if child.ValidateCondition(condition) && (--index = 0)
                         return child.DefineProp("Path", {value:path (path?",":"") A_index})
-                    else if scope&4
-                        try return ReverseRecursiveFind(child, condition, scope ^= 1, path (path?",":"") A_index)
+                    else if scope&4 && (rf := ReverseRecursiveFind(child, condition,, path (path?",":"") A_index))
+                        return rf 
                 }
-                throw Error("Matching Acc object not found", -2)
             }
         }
         ; Returns an array of elements matching the condition (see description under ValidateCondition)
@@ -720,17 +726,19 @@ class Acc {
             }          
         }
         WaitElementExist(conditionOrPath, scope:=4, timeOut:=-1) {
-            startTime := A_TickCount
-            while ((timeOut < 1) ? 1 : (A_tickCount - startTime < timeOut)) {
-                try {
-                    if IsObject(conditionOrPath)
-                        return this.FindFirst(conditionOrPath, scope)
-                    else
-                        return this[StrSplit(conditionOrPath,",")*]
-                }
+            waitTime := A_TickCount + timeOut
+            while ((timeOut < 1) ? 1 : (A_tickCount < waitTime)) {
+                try return IsObject(conditionOrPath) ? this.FindFirst(conditionOrPath, scope) : this[StrSplit(conditionOrPath,",")*]
                 Sleep 40
             }
-            throw Error("WaitElementExist timed out")
+        }
+        WaitNotExist(timeOut:=-1) {
+            waitTime := A_TickCount + timeOut
+            while ((timeOut < 1) ? 1 : (A_tickCount < waitTime)) {
+                if !this.Exists
+                    return 1
+                Sleep 40
+            }
         }
         /*
             Checks whether the current element or any of its ancestors match the condition, 
@@ -748,7 +756,7 @@ class Acc {
                 } catch
                     break
             }
-            throw Error("Matching Acc object not found")
+            return 0
         }
 
         /*
@@ -767,6 +775,8 @@ class Acc {
             {Name:"Something", not:[RoleText:"something", RoleText:"something else"]} => Name must match "something" and RoleText cannot match "something" nor "something else"
         */
         ValidateCondition(oCond) {
+            if !IsObject(oCond)
+                throw TypeError("Condition must be an object or array", -1)
             if Type(oCond) = "Array" { ; or condition
                 for _, c in oCond
                     if this.ValidateCondition(c)
@@ -774,20 +784,19 @@ class Acc {
                 return 0
             }
             matchmode := 3, casesensitive := 1, notCond := False
-            oCondClone := oCond.Clone()
             for p in ["matchmode", "mm"]
-                if oCondClone.HasOwnProp(p) {
-                    matchmode := oCondClone.%p%
-                    oCondClone.DeleteProp(p)
+                if oCond.HasOwnProp(p) {
+                    matchmode := oCond.%p%
                 }
             for p in ["casesensitive", "cs"]
-                if oCondClone.HasOwnProp(p) {
-                    casesensitive := oCondClone.%p%
-                    oCondClone.DeleteProp(p)
+                if oCond.HasOwnProp(p) {
+                    casesensitive := oCond.%p%
                 }
-            for prop, cond in oCondClone.OwnProps() {
+            for prop, cond in oCond.OwnProps() {
                 switch Type(cond) { ; and condition
                     case "String", "Integer":
+                        if prop = "matchmode" || prop = "mm" || prop = "casesensitive" || prop = "cs"
+                            continue
                         propValue := ""
                         try propValue := this.%prop%
                         switch matchmode, 0 {
@@ -819,24 +828,23 @@ class Acc {
             }
             return 1
         }
-
         ; Outputs relevant information about the element
         Dump(scope:=1) {
-            if scope&4
-                return RecurseTree(this, scope&1 ? this.Dump() "`n" : "")
             out := ""
             if scope&1 {
-                RoleText := "", Role := "", Value := "", Name := "", StateText := "", State := "", DefaultAction := "", Description := "", KeyboardShortcut := "", Help := "", Pos := {x:0,y:0,w:0,h:0}
+                RoleText := "N/A", Role := "N/A", Value := "N/A", Name := "N/A", StateText := "N/A", State := "N/A", DefaultAction := "N/A", Description := "N/A", KeyboardShortcut := "N/A", Help := "N/A", Pos := {x:0,y:0,w:0,h:0}
                 for _, v in ["RoleText", "Role", "Value", "Name", "StateText", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help"]
                     try %v% := this.%v%
                 try Pos := this.Location
-                out := "RoleText: " RoleText " Role: " Role " [Location: {x:" Pos.x ",y:" Pos.y ",w:" Pos.w ",h:" Pos.h "}]" " [Name: " (Name ?? "") "] [Value: " (Value ?? "")  "]" (StateText ? " [StateText: " StateText "]" : "") (State ? " [State: " State "]" : "") (DefaultAction ? " [DefaultAction: " DefaultAction "]" : "") (Description ? " [Description: " Description "]" : "") (KeyboardShortcut ? " [KeyboardShortcut: " KeyboardShortcut "]" : "") (Help ? " [Help: " Help "]" : "") (this.childId ? " ChildId: " this.childId : "") "`n"
+                out := "RoleText: " RoleText " Role: " Role " [Location: {x:" Pos.x ",y:" Pos.y ",w:" Pos.w ",h:" Pos.h "}]" " [Name: " Name "] [Value: " Value  "]" (StateText ? " [StateText: " StateText "]" : "") (State ? " [State: " State "]" : "") (DefaultAction ? " [DefaultAction: " DefaultAction "]" : "") (Description ? " [Description: " Description "]" : "") (KeyboardShortcut ? " [KeyboardShortcut: " KeyboardShortcut "]" : "") (Help ? " [Help: " Help "]" : "") (this.childId ? " ChildId: " this.childId : "")
             }
+            if scope&4
+                return Trim(RecurseTree(this, out), "`n")
             if scope&2 {
                 for n, oChild in this.Children
                     out .= n ": " oChild.Dump() "`n"
             }
-            return RTrim(out, "`n")
+            return Trim(out, "`n")
 
             RecurseTree(oAcc, tree, path:="") {
                 try {
@@ -852,30 +860,28 @@ class Acc {
                 return tree
             }
         }
-
         DumpAll() => this.Dump(5)
+        ToString() => this.Dump()
 
-        /*
-            Highlights the element for a chosen period of time
-            Possible showTime values:
-                Unset: removes the highlighting
-                0: Indefinite highlighting
-                Positive integer (eg 2000): will highlight and pause for the specified amount of time in ms
-                Negative integer: will highlight for the specified amount of time in ms, but script execution will continue
-        */
+        ; Highlights the element for a chosen period of time
+        ; showTime can be one of the following:
+        ;    Unset - removes the highlighting
+        ;    0 - Indefinite highlighting
+        ;    Positive integer (eg 2000) - will highlight and pause for the specified amount of time in ms
+        ;    Negative integer - will highlight for the specified amount of time in ms, but script execution will continue
         Highlight(showTime:=unset, color:="Red", d:=2) {
-            static range := [], removeHighlight := ObjBindMethod(Acc.IAccessible, "Highlight")
-            if !IsSet(showTime) {
-                for _, r in range
+            if !IsSet(showTime) && Acc.__HighlightGuis.Has(ObjPtr(this)) {
+                for _, r in Acc.__HighlightGuis[ObjPtr(this)]
                     r.Destroy()
-                range := []
-                return
+                Acc.__HighlightGuis.Delete(ObjPtr(this))
+                return this
             }
+            Acc.__HighlightGuis[ObjPtr(this)] := []
             try loc := this.Location
             if !IsSet(loc) || !IsObject(loc)
-                return
+                return this
             Loop 4 {
-                range.Push(Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +E0x08000000"))
+                Acc.__HighlightGuis[ObjPtr(this)].Push(Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +E0x08000000"))
             }
             Loop 4
             {
@@ -884,14 +890,15 @@ class Acc {
                 , y1:=(i=3 ? loc.y+loc.h : loc.y-d)
                 , w1:=(i=1 or i=3 ? loc.w+2*d : d)
                 , h1:=(i=2 or i=4 ? loc.h+2*d : d)
-                range[i].BackColor := color
-                range[i].Show("NA x" . x1 . " y" . y1 . " w" . w1 . " h" . h1)
+                Acc.__HighlightGuis[ObjPtr(this)][i].BackColor := color
+                Acc.__HighlightGuis[ObjPtr(this)][i].Show("NA x" . x1 . " y" . y1 . " w" . w1 . " h" . h1)
             }
             if showTime > 0 {
                 Sleep(showTime)
                 this.Highlight()
             } else if showTime < 0
-                SetTimer(removeHighlight, -Abs(showTime))
+                SetTimer(ObjBindMethod(this, "Highlight"), -Abs(showTime))
+            return this
         }
 
 
@@ -899,6 +906,7 @@ class Acc {
         ; If WhichButton is a number, then Sleep will be called with that number. Eg Click(200) will sleep 200ms after clicking
         ; If ClickCount is a number >=10, then Sleep will be called with that number. To click 10+ times and sleep after, specify "ClickCount SleepTime". Ex: Click("left", 200) will sleep 200ms after clicking. Ex: Click("left", "20 200") will left-click 20 times and then sleep 200ms.
         ; If Relative is "Rel" or "Relative" then X and Y coordinates are treated as offsets from the current mouse position. Otherwise it expects offset values for both X and Y (eg "-5 10" would offset X by -5 and Y by +10).
+        ; Setting NoActivate to True will cause the window to be brought to front in the clickable point is not visible on screen
         Click(WhichButton:="left", ClickCount:=1, DownOrUp:="", Relative:="", NoActivate:=False) {		
             rel := [0,0], pos := this.Location, saveCoordMode := A_CoordModeMouse, cCount := 1, SleepTime := -1
             if (Relative && !InStr(Relative, "rel"))
@@ -919,6 +927,7 @@ class Acc {
             Click(pos.x+pos.w//2+rel[1] " " pos.y+pos.h//2+rel[2] " " WhichButton (ClickCount ? " " ClickCount : "") (DownOrUp ? " " DownOrUp : "") (Relative ? " " Relative : ""))
             CoordMode("Mouse", saveCoordMode)
             Sleep(SleepTime)
+            return this
         }
 
         ; ControlClicks the element after getting relative coordinates with GetLocation("client"). 
@@ -928,6 +937,7 @@ class Acc {
             ControlClick("X" pos.x+pos.w//2 " Y" pos.y+pos.h//2, this.wId,, IsInteger(WhichButton) ? "left" : WhichButton, ClickCount, Options)
             if IsInteger(WhichButton)
                 Sleep(WhichButton)
+            return this
         }
     }
 
@@ -949,12 +959,12 @@ class Acc {
     }
     
     static ObjectFromWindow(hWnd:="A", idObject := 0, activateChromium:=True) {
-        if !hWnd
-            throw Error("Invalid window handle provided", -2)
-        if activateChromium
-            Acc.ActivateChromiumAccessibility(hWnd)
         if !IsInteger(hWnd)
             hWnd := WinExist(hWnd)
+        if !hWnd
+            throw Error("Invalid window handle or window not found", -1)
+        if activateChromium
+            Acc.ActivateChromiumAccessibility(hWnd)
         IID := Buffer(16)
         if DllCall("oleacc\AccessibleObjectFromWindow", "ptr",hWnd, "uint",idObject &= 0xFFFFFFFF
                 , "ptr",-16 + NumPut("int64", idObject == 0xFFFFFFF0 ? 0x46000000000000C0 : 0x719B3800AA000C81, NumPut("int64", idObject == 0xFFFFFFF0 ? 0x0000000000020400 : 0x11CF3C3D618736E0, IID))
@@ -1002,11 +1012,12 @@ class Acc {
             return
         SendMessage(WM_GETOBJECT := 0x003D, 0, 1,, cHwnd)
         try {
-            rendererEl := Acc.ObjectFromWindow(cHwnd,,False).FindFirst({Role:15})
-            rendererEl.Name ; it doesn't work without calling CurrentName (at least in Skype)
+            rendererEl := Acc.ObjectFromWindow(cHwnd,,False).FindFirst({Role:15}, 5)
+            _ := rendererEl.Name ; it doesn't work without calling CurrentName (at least in Skype)
         }
-        startTime := A_TickCount
-        while IsSet(rendererEl) && (A_TickCount-startTime < 500) {
+        
+        waitTime := A_TickCount + 500
+        while IsSet(rendererEl) && (A_TickCount < waitTime) {
             try {
                 if rendererEl.Value
                     return
@@ -1025,7 +1036,7 @@ class Acc {
         if !IsInteger(nRole) {
             if (Type(nRole) = "String") && (nRole != "")
                 return nRole
-            throw TypeError("The specified role is not an integer!",-2)
+            throw TypeError("The specified role is not an integer!",-1)
         }
         nRole := Integer(nRole)
         nSize := DllCall("oleacc\GetRoleText", "Uint", nRole, "Ptr", 0, "Uint", 0)
@@ -1069,6 +1080,14 @@ class Acc {
 	static WindowFromPoint(X, Y) { ; by SKAN and Linear Spoon
 		return DllCall("GetAncestor", "UInt", DllCall("user32.dll\WindowFromPoint", "Int64", Y << 32 | X), "UInt", 2)
 	}
+
+    static ClearHighlights() {
+        for _, p in Acc.__HighlightGuis {
+            for __, r in p
+                r.Destroy()
+        }
+        Acc.__HighlightGuis := Map()
+    }
 
     class Viewer {
         __New() {
@@ -1154,7 +1173,7 @@ class Acc {
         CaptureCycle() {
             MouseGetPos(&mX, &mY, &mwId)
             oAcc := Acc.ObjectFromPoint()
-            if this.Stored.HasOwnProp("oAcc") && oAcc.IsEqual(this.Stored.oAcc) {
+            if this.Stored.HasOwnProp("oAcc") && IsObject(oAcc) && oAcc.IsEqual(this.Stored.oAcc) {
                 if this.FoundTime != 0 && ((A_TickCount - this.FoundTime) > 1000) {
                     if (mX == this.Stored.mX) && (mY == this.Stored.mY) 
                         this.ConstructTreeView(), this.FoundTime := 0
@@ -1174,10 +1193,10 @@ class Acc {
             this.Stored.mwId := mwId, this.Stored.oAcc := oAcc, this.Stored.mX := mX, this.Stored.mY := mY, this.FoundTime := A_TickCount
         }
         LVProps_Populate(oAcc) {
-            oAcc.Highlight() ; Clear
+            Acc.ClearHighlights() ; Clear
             oAcc.Highlight(0) ; Indefinite show
             this.LVProps.Delete()
-            Location := {x:0,y:0,w:0,h:0}, RoleText := "", Role := "", Value := "", Name := "", StateText := "", State := "", DefaultAction := "", Description := "", KeyboardShortcut := "", Help := "", ChildId := ""
+            Location := {x:0,y:0,w:0,h:0}, RoleText := "N/A", Role := "N/A", Value := "N/A", Name := "N/A", StateText := "N/A", State := "N/A", DefaultAction := "N/A", Description := "N/A", KeyboardShortcut := "N/A", Help := "N/A", ChildId := ""
             for _, v in ["RoleText", "Role", "Value", "Name", "Location", "StateText", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help", "ChildId"] {
                 try %v% := oAcc.%v%
                 this.LVProps.Add(,v, v = "Location" ? ("x: " %v%.x " y: " %v%.y " w: " %v%.w " h: " %v%.h) : %v%)
@@ -1266,4 +1285,3 @@ class Acc {
         }
     }
 }
-
