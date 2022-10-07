@@ -1,4 +1,4 @@
-/*
+﻿/*
 	Name: Array.ahk
 	Version 0.1 (06.10.22)
 	Created: 27.08.22
@@ -11,7 +11,7 @@
     Array.Slice(start:=1, end:=0, step:=1)  => Returns a section of the array from 'start' to 'end', 
         optionally skipping elements with 'step'.
     Array.Swap(a, b)                        => Swaps elements at indexes a and b.
-    Array.Map(func)                         => Applies a function to each element in the array.
+    Array.Map(func, arrays*)                => Applies a function to each element in the array.
     Array.Filter(func)                      => Keeps only values that satisfy the provided function
     Array.Reduce(func, initialValue?)       => Applies a function cumulatively to all the values in 
         the array, with an optional initial value.
@@ -61,11 +61,14 @@ class Array2 {
     /**
      * Applies a function to each element in the array
      * @param func The mapping function that accepts one argument.
+     * @param arrays Additional arrays to be accepted in the mapping function
      * @returns {Array}
      */
-    static Map(func) {
+    static Map(func, arrays*) {
         for i, v in this {
             bf := func.Bind(v)
+            for _, vv in arrays
+                bf := bf.Bind(vv.Has(i) ? vv[i] : "")
             try bf := bf()
             this[i] := bf
         }
