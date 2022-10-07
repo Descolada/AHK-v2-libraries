@@ -1,4 +1,4 @@
-#include ..\Lib\Misc.ahk
+﻿#include ..\Lib\Misc.ahk
 #include ..\Lib\Array.ahk
 
 Print(["a", 2, 1.2, 1.22, 1.20].Sort(), MsgBox)
