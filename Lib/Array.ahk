@@ -39,10 +39,25 @@ class Array2 {
      * @returns {Array}
      */
     static Slice(start:=1, end:=0, step:=1) {
-        i := start < 1 ? this.Length + start : start, j := end < 1 ? this.Length + end : end, r := []
-        while i <= j {
-            r.Push(this[i])
-            i += step
+        len := this.Length, i := start < 1 ? len + start : start, j := end < 1 ? len + end : end, r := [], reverse := False
+        if i < 1 || j > len
+            Throw IndexError("Slice: start or end value out of bounds", -1)
+        if step = 0
+            Throw Error("Slice: step cannot be 0",-1)
+        else if step < 0 {
+            if i < j
+                Throw Error("Slice: if step is negative then start value must be greater than end value", -1)
+            while i >= j {
+                r.Push(this[i])
+                i += step
+            }
+        } else {
+            if i > j
+                Throw Error("Slice: start value must be smaller than end value", -1)
+            while i <= j {
+                r.Push(this[i])
+                i += step
+            }
         }
         return this := r
     }
@@ -65,6 +80,8 @@ class Array2 {
      * @returns {Array}
      */
     static Map(func, arrays*) {
+        if !HasMethod(func)
+            throw ValueError("Map: func must be a function", -1)
         for i, v in this {
             bf := func.Bind(v)
             for _, vv in arrays
@@ -80,6 +97,8 @@ class Array2 {
      * @returns {Array}
      */
     static Filter(func) {
+        if !HasMethod(func)
+            throw ValueError("Filter: func must be a function", -1)
         r := []
         for v in this
             if func(v)
@@ -95,6 +114,8 @@ class Array2 {
      * [1,2,3,4,5].Reduce((a,b) => (a+b)) ; returns 15 (the sum of all the numbers)
      */
     static Reduce(func, initialValue?) {
+        if !HasMethod(func)
+            throw ValueError("Reduce: func must be a function", -1)
         len := this.Length + 1
         if len = 1
             return initialValue ?? ""
@@ -127,6 +148,8 @@ class Array2 {
      * [1,2,3,4,5].Find((v) => (Mod(v,2) == 0)) ; returns 2
      */
     static Find(func) {
+        if !HasMethod(func)
+            throw ValueError("Find: func must be a function", -1)
         for v in this
             if func(v)
                 return v
@@ -136,6 +159,8 @@ class Array2 {
      * @param func The condition function that accepts one argument.
      */
     static FindIndex(func) {
+        if !HasMethod(func)
+            throw ValueError("FindIndex: func must be a function", -1)
         for i, v in this
             if func(v)
                 return i
@@ -232,6 +257,8 @@ class Array2 {
      * @returns {Array}
      */
     static Extend(arr) {
+        if !HasMethod(arr, "__Enum")
+            throw ValueError("Extend: arr must be an iterable")
         for v in arr
             this.Push(v)
         return this
