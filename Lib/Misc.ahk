@@ -1,4 +1,4 @@
-/*
+﻿/*
 	Name: Misc.ahk
 	Version 0.1 (26.08.22)
 	Created: 26.08.22
@@ -79,7 +79,8 @@ Swap(&a, &b) {
 }
 
 /**
- * Prints the formatted value of a variable (number, string, array, map, object)
+ * Prints the formatted value of a variable (number, string, object).
+ * Leaving all parameters empty will return the current function and newline in an Array: [func, newline]
  * @param value Optional: the variable to print. 
  *     If omitted then new settings (output function and newline) will be set.
  *     If value is an object/class that has a ToString() method, then the result of that will be printed.
@@ -98,33 +99,45 @@ Print(value?, func?, newline?) {
 		val := IsObject(value) ? _Print(value) nl : value nl
 		return HasMethod(p) ? p(val) : val
 	}
+	return [p, nl]
 
 	_Print(val?) {
 		if !IsSet(val)
 			return "unset"
-		out := ""
 		switch Type(val), 0 {
 			case "String":
 				return "'" val "'"
 			case "Integer", "Float":
 				return val
-			case "Array":
-				for k, v in val
-					out .= _Print(v?) ", "
-				return "[" SubStr(out, 1, StrLen(out)-2) "]"
-			case "Map":
-				for k, v in val
-					out .= _Print(k) ":" _Print(v?) ", "
-				return "Map(" SubStr(out, 1, StrLen(out)-2) ")"
-			case "Object":
-				if val.HasOwnProp("ToString")
-					try return _Print(val.ToString())
-				for k, v in val.OwnProps()
-					out .= k ":" _Print(v?) ", "
-				return "{" SubStr(out, 1, StrLen(out)-2) "}"
 			default:
-				try return _Print(val.ToString())
-				return Type(val)
+				self := "", iter := "", out := ""
+				try self := _Print(val.ToString()) ; if the object has ToString available, print it
+				if Type(val) != "Array" { ; enumerate object with key and value pair, except for array
+					try {
+						enum := val.__Enum(2) 
+						while (enum.Call(&val1, &val2))
+							iter .= _Print(val1) ":" _Print(val2?) ", "
+					}
+				}
+				if !IsSet(enum) { ; if enumerating with key and value failed, try again with only value
+					try {
+						enum := val.__Enum(1)
+						while (enum.Call(&enumVal))
+							iter .= _Print(enumVal?) ", "
+					}
+				}
+				if !IsSet(enum) && (Type(val) = "Object") && !self { ; if everything failed, enumerate Object props
+					for k, v in val.OwnProps()
+						iter .= _Print(k) ":" _Print(v?) ", "
+				}
+				iter := SubStr(iter, 1, StrLen(iter)-2)
+				if !self && !iter
+					return Type(val) ; if no additional info is available, only print out the type
+				else if self && iter
+					out .= "value:" self ", iter:[" iter "]"
+				else
+					out .= self iter
+				return (Type(val) = "Object") ? "{" out "}" : (Type(val) = "Array") ? "[" out "]" : Type(val) "(" out ")"
 		}
 	}
 }
