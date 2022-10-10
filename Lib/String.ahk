@@ -57,15 +57,15 @@
 */
 
 ; Add String2 methods and properties into String object
-ObjDefineProp := Object.Prototype.DefineProp
-for f in String2.OwnProps() {
-	if !(f ~= "__Init|__Item|Prototype|Length") {
-		if HasMethod(String2, f)
-			ObjDefineProp(String.Prototype, f, {call:String2.%f%})
+__ObjDefineProp := Object.Prototype.DefineProp
+for __String2_Prop in String2.OwnProps() {
+	if !(__String2_Prop ~= "__Init|__Item|Prototype|Length") {
+		if HasMethod(String2, __String2_Prop)
+			__ObjDefineProp(String.Prototype, __String2_Prop, {call:String2.%__String2_Prop%})
 	}
 }
-ObjDefineProp(String.Prototype, "__Item", {get:(args*)=>String2.__Item[args*]})
-ObjDefineProp(String.Prototype, "Length", {get:(arg)=>String2.Length(arg)})
+__ObjDefineProp(String.Prototype, "__Item", {get:(args*)=>String2.__Item[args*]})
+__ObjDefineProp(String.Prototype, "Length", {get:(arg)=>String2.Length(arg)})
 
 Class String2 {
 	static __Item[args*] {
