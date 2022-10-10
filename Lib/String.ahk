@@ -73,14 +73,15 @@ Class String2 {
 			if args.length = 2
 				return SubStr(args[1], args[2], 1)
 			else {
+				len := StrLen(args[1])
+				if args[2] < 0
+					args[2] := len+args[2]+1
 				if args[3] < 0
-					return SubStr(args[1], args[2], StrLen(args[1])-args[2]+args[3]+1)
-				else if args[3] = 0
-					return SubStr(args[1], args[2])
-				else if args[3] < args[2]
-					return SubStr(args[1], args[3], args[2]).Reverse()
-				else
+					args[3] := len+args[3]+1
+				if args[3] >= args[2]
 					return SubStr(args[1], args[2], args[3]-args[2]+1)
+				else
+					return SubStr(args[1], args[3], args[2]-args[3]+1).Reverse()
 			}
 		}
 	}
