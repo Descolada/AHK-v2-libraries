@@ -99,6 +99,33 @@ Class String2 {
 	static Find(args*)    => InStr(this, args*)
 
 	/**
+	 * Returns the match object
+	 * @param needleRegex *String*
+	 * @param startingPos *Integer*
+	 * @returns {Object}
+	 */
+	static RegExMatch(needleRegex, startingPos?) {
+		str := this
+		RegExMatch(str, needleRegex, &match, startingPos?)
+		return match
+	}
+
+	/**
+	 * Uses regex to perform a replacement, returns the changed string
+	 * @param needleRegex *String* What pattern to match
+	 * @param replacement *String* What to replace that match into
+	 * @param outputVarCount *Varref* Specify a variable with a `&` before it to assign it to the amount of replacements that have occured
+	 * @param limit *Integer* The maximum amount of replacements that can happen. Unlimited by default
+	 * @param startingPos *Integer* Specify a number to start matching at. By default, starts matching at the beginning of the string
+	 * @returns {String} The changed string
+	 */
+	static RegExReplace(needleRegex, replacement?, &outputVarCount?, limit?, startingPos?) {
+		str := this
+		str := RegExReplace(str, needleRegex, replacement?, &outputVarCount?, limit?, startingPos?)
+		return str
+	}	
+
+	/**
 	 * Add character(s) to left side of the input string.
 	 * example: "aaa".LPad("+", 5)
 	 * output: +++++aaa
