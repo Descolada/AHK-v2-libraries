@@ -143,7 +143,7 @@ Class String2 {
 	 */
 	static Count(needle, caseSensitive:=False) {
 		StrReplace(this, needle,, caseSensitive, &count)
-		return count+1
+		return count
 	}
 
 	/**
@@ -174,7 +174,7 @@ Class String2 {
 	 */
 	static Insert(insert, pos:=1) {
 		Length := StrLen(this)
-		((pos > 0) ;Comment about the formatting: ternaries go expression by expression, `pos2 := StrLen(this), Length := 0` are two expressions, so they should be in (), `pos2 := pos - 1` though, is already a single expression, so it doesn't need to be in () - Axlefublr
+		((pos > 0)
 			? pos2 := pos - 1
 			: (pos = 0
 				? (pos2 := StrLen(this), Length := 0)
@@ -182,7 +182,7 @@ Class String2 {
 				)
 		)
 		output := SubStr(this, 1, pos2) . insert . SubStr(this, pos, Length)
-		if (StrLen(output) > StrLen(this) + StrLen(insert)) ;No {} around the if needed, because the ternary is considered a single expression, and by extension, a single line - Axlefublr
+		if (StrLen(output) > StrLen(this) + StrLen(insert))
 			((Abs(pos) <= StrLen(this)/2)
 				? (output := SubStr(output, 1, pos2 - 1)
 					. SubStr(output, pos + 1, StrLen(this))
@@ -204,7 +204,7 @@ Class String2 {
 	 */
 	static Overwrite(overwrite, pos:=1) {
 	if (Abs(pos) > StrLen(this))
-		return "" ;We're expecting a string, we should get a string - Axlefublr
+		throw ValueError("Overwrite: pos cannot be greater than the length of the string", -1)
 	else if (pos>0)
 		return SubStr(this, 1, pos-1) . overwrite . SubStr(this, pos+StrLen(overwrite))
 	else if (pos<0)
@@ -222,8 +222,8 @@ Class String2 {
 	 * @returns {String}
 	 */
 	static Delete(start:=1, length:=1) {
-		if (Abs(start+length) > StrLen(this))
-			return ""
+		if (Abs(start) > StrLen(this))
+			throw ValueError("Start cannot be greater than length", -1)
 		if (start>0)
 			return SubStr(this, 1, start-1) . SubStr(this, start + length)
 		else if (start<=0)
