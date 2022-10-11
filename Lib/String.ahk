@@ -203,14 +203,14 @@ Class String2 {
 	 * @returns {String}
 	 */
 	static Overwrite(overwrite, pos:=1) {
-	if (Abs(pos) > StrLen(this))
-		throw ValueError("Overwrite: pos cannot be greater than the length of the string", -1)
-	else if (pos>0)
-		return SubStr(this, 1, pos-1) . overwrite . SubStr(this, pos+StrLen(overwrite))
-	else if (pos<0)
-		return SubStr(this, 1, pos) . overwrite . SubStr(this " ",(Abs(pos) > StrLen(overwrite) ? pos+StrLen(overwrite) : 0), Abs(pos+StrLen(overwrite)))
-	else if (pos=0)
-		return this . overwrite
+		if (Abs(pos) > StrLen(this))
+			return ""
+		else if (pos>0)
+			return SubStr(this, 1, pos-1) . overwrite . SubStr(this, pos+StrLen(overwrite))
+		else if (pos<0)
+			return SubStr(this, 1, pos) . overwrite . SubStr(this " ",(Abs(pos) > StrLen(overwrite) ? pos+StrLen(overwrite) : 0), Abs(pos+StrLen(overwrite)))
+		else if (pos=0)
+			return this . overwrite
 	}
 
 	/**
@@ -223,11 +223,11 @@ Class String2 {
 	 */
 	static Delete(start:=1, length:=1) {
 		if (Abs(start) > StrLen(this))
-			throw ValueError("Start cannot be greater than length", -1)
+			return ""
 		if (start>0)
 			return SubStr(this, 1, start-1) . SubStr(this, start + length)
 		else if (start<=0)
-			return SubStr(this " ", 1, start-length-1) SubStr(this " ", ((start<0) ? start : 0), -1)
+			return SubStr(this " ", 1, start-1) SubStr(this " ", ((start<0) ? start-1+length : 0), -1)
 	}
 
 	/**
