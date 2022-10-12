@@ -100,6 +100,23 @@ Class String2 {
 	static Compare(args*) => StrCompare(this, args*)
 	static Sort(args*)    => Sort(this, args*)
 	static Find(args*)    => InStr(this, args*)
+	/**
+	 * Returns the match object
+	 * @param needleRegex *String* What pattern to match
+	 * @param startingPos *Integer* Specify a number to start matching at. By default, starts matching at the beginning of the string
+	 * @returns {Object}
+	 */
+	static RegExMatch(needleRegex, &match?, startingPos?) => (RegExMatch(this, needleRegex, &match, startingPos?), match)
+	 /**
+	  * Uses regex to perform a replacement, returns the changed string
+	  * @param needleRegex *String* What pattern to match
+	  * @param replacement *String* What to replace that match into
+	  * @param outputVarCount *Varref* Specify a variable with a `&` before it to assign it to the amount of replacements that have occured
+	  * @param limit *Integer* The maximum amount of replacements that can happen. Unlimited by default
+	  * @param startingPos *Integer* Specify a number to start matching at. By default, starts matching at the beginning of the string
+	  * @returns {String} The changed string
+	  */
+	static RegExReplace(needleRegex, replacement?, &outputVarCount?, limit?, startingPos?) => RegExReplace(this, needleRegex, replacement?, &outputVarCount?, limit?, startingPos?)
 
 	/**
 	 * Add character(s) to left side of the input string.
