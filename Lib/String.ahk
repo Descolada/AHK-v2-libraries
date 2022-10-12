@@ -28,6 +28,8 @@
 	|       .Compare(comparison [, CaseSense])                                   |
 	|       .Sort([, Options, Function])                                         |
 	|       .Find(Needle [, CaseSense, StartingPos, Occurrence])                 |
+	|		.RegExMatch(needleRegex, &match?, startingPos?)                      |
+	|		.RegExReplace(needle, replacement?, &count?, limit?, startingPos?)   |
 	|                                                                            |
 	| String[n] => gets nth character                                            |
 	| String[i,j] => substring from i to j                                       |
