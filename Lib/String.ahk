@@ -1,6 +1,6 @@
 ﻿/*
 	Name: String.ahk
-	Version 0.11 (09.09.22)
+	Version 0.12 (12.09.22)
 	Created: 27.08.22
 	Author: Descolada
 	Credit:
