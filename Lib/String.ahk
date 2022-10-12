@@ -66,6 +66,7 @@ for __String2_Prop in String2.OwnProps() {
 }
 __ObjDefineProp(String.Prototype, "__Item", {get:(args*)=>String2.__Item[args*]})
 __ObjDefineProp(String.Prototype, "Length", {get:(arg)=>String2.Length(arg)})
+__ObjDefineProp(String.Prototype, "WLength", {get:(arg)=>String2.WLength(arg)})
 
 Class String2 {
 	static __Item[args*] {
@@ -87,6 +88,7 @@ Class String2 {
 	}
 	; Native functions implemented as methods for the String object
 	static Length(str)    => StrLen(str)
+	static WLength(str)   => (RegExReplace(str, "s).", "", &i), i)
 	static ToUpper()      => StrUpper(this)
 	static ToLower()      => StrLower(this)
 	static ToTitle()      => StrTitle(this)
@@ -163,6 +165,12 @@ Class String2 {
 		DllCall("msvcrt\_wcsrev", "str", str := this, "CDecl str")
 		return str
 	}
+	static WReverse() {
+		str := this, out := "", m := ""
+		While RegexMatch(str, "s).", &m) && out := m[] out
+			str := RegExReplace(str, "s).",,,1)
+		return out
+	}
 
 	/**
 	 * Insert the string inside 'insert' into position 'pos'
@@ -232,9 +240,9 @@ Class String2 {
 
 	/**
 	 * Wrap the string so each line is never more than a specified length.
-	 * input: "Apples are a round fruit, usually red.".LineWrap(20, "---")
+	 * input: "Apples are a round fruit, usually red".LineWrap(20, "---")
 	 * output: "Apples are a round f
-	 *          ---ruit, usually red."
+	 *          ---ruit, usually red"
 	 * @param column Specify a maximum length per line
 	 * @param indentChar Choose a character to indent the following lines with
 	 * @returns {String}
@@ -244,7 +252,7 @@ Class String2 {
 		, columnSpan := column - CharLength
 		, Ptr := A_PtrSize ? "Ptr" : "UInt"
 		, UnicodeModifier := 2
-		, VarSetStrCapacity(&out, (StrLen(this) + (Ceil(StrLen(this) / columnSpan) * (column + CharLength + 1)))+2)
+		, VarSetStrCapacity(&out, (finalLength := (StrLen(this) + (Ceil(StrLen(this) / columnSpan) * (column + CharLength + 1))))*2)
 		, A := StrPtr(out)
 
 		Loop parse, this, "`n", "`r" {
@@ -278,6 +286,7 @@ Class String2 {
 				, NumPut("UShort", 10, A)
 				, A += UnicodeModifier
 		}
+		NumPut("UShort", 0, A)
 		VarSetStrCapacity(&out, -1)
 		return SubStr(out,1, -1)
 	}
@@ -295,7 +304,7 @@ Class String2 {
 	 */
 	static WordWrap(column:=56, indentChar:="") {
 		if !IsInteger(column)
-			throw TypeError("WordWrap: argument 'column' must be an integer", -2)
+			throw TypeError("WordWrap: argument 'column' must be an integer", -1)
 		out := ""
 		indentLength := StrLen(indentChar)
 
@@ -332,7 +341,7 @@ Class String2 {
 	 */
 	static InsertLine(insert, line, delim:="`n", exclude:="`r") {
 		into := this, new := ""
-		count := into.Count(delim)
+		count := into.Count(delim)+1
 
 		; Create any lines that don't exist yet, if the Line is less than the total line count.
 		if (line<0 && Abs(line)>count) {
@@ -371,18 +380,16 @@ Class String2 {
 	static DeleteLine(line, delim:="`n", exclude:="`r") {
 		new := ""
 		; checks to see if we are trying to delete a non-existing line.
-		count:=this.Count(delim)
+		count:=this.Count(delim)+1
 		if (abs(line)>Count)
-			throw Error("DeleteLine: the line number cannot be greater than the number of lines", -2)
+			throw ValueError("DeleteLine: the line number cannot be greater than the number of lines", -1)
 		if (line<0)
 			line:=count+line+1
 		else if (line=0)
-			throw Error("DeleteLine: line number cannot be 0", -2)
+			throw ValueError("DeleteLine: line number cannot be 0", -1)
 
 		Loop parse, this, delim, exclude {
 			if (a_index==line) {
-				if A_Index == count
-					new .= delim
 				Continue
 			} else
 				(new .= A_LoopField . delim)
@@ -403,24 +410,24 @@ Class String2 {
 	 * @returns {String}
 	 */
 	static ReadLine(line, delim:="`n", exclude:="`r") {
-		out := "", count:=String.Count(delim)
+		out := "", count:=this.Count(delim)+1
 
 		if (line="R")
 			line := Random(1, count)
 		else if (line="L")
 			line := count
 		else if abs(line)>Count
-			throw Error("ReadLine: the line number cannot be greater than the number of lines", -2)
+			throw ValueError("ReadLine: the line number cannot be greater than the number of lines", -1)
 		else if (line<0)
 			line:=count+line+1
 		else if (line=0)
-			throw Error("ReadLine: line number cannot be 0", -2)
+			throw ValueError("ReadLine: line number cannot be 0", -1)
 
 		Loop parse, this, delim, exclude {
 			if A_Index = line
 				return A_LoopField
 		}
-		throw Error("ReadLine: something went wrong, the line was not found", -2)
+		throw Error("ReadLine: something went wrong, the line was not found", -1)
 	}
 
 	/**
@@ -429,7 +436,7 @@ Class String2 {
 	 * output: "aaa|bbb|ccc|ddd"
 	 * @param delim *String*
 	 */
-	static RemoveDuplicates(delim:="`n") => RegExReplace(this, "(" RegExReplace(delim, "([\\.*?+\[\{|\()^$])", "\$1") ")+", "$1")
+	static RemoveDuplicates(delim:="`n") => RegExReplace(this, "(\Q" delim "\E)+", "$1")
 
 	/**
 	 * Checks whether the string contains any of the needles provided.
@@ -460,20 +467,20 @@ Class String2 {
 	 * @returns {String}
 	 */
 	static Center(fill:=" ", symFill:=0, delim:="`n", exclude:="`r", width?) {
-		fill:=SubStr(fill,1,1)
+		fill:=SubStr(fill,1,1), longest := 0, new := ""
 		Loop parse, this, delim, exclude
 			if (StrLen(A_LoopField)>longest)
-				longest:=StrLen(A_LoopField)
-		if !IsSet(width)
+				longest := StrLen(A_LoopField)
+		if IsSet(width)
 			longest := Max(longest, width)
-		Loop parse, this, %delim%, %exclude%
+		Loop parse this, delim, exclude 
 		{
-			filled:=""
-			Loop (longest-StrLen(A_LoopField))//2
+			filled:="", len := StrLen(A_LoopField)
+			Loop (longest-len)//2
 				filled.=fill
-			new.= filled A_LoopField ((symFill=1) ? filled : "") "`n"
+			new .= filled A_LoopField ((symFill=1) ? filled (2*StrLen(filled)+len = longest ? "" : fill) : "") "`n"
 		}
-		return rtrim(new,"`r`n")
+		return RTrim(new,"`r`n")
 	}
 
 	/**
@@ -488,7 +495,7 @@ Class String2 {
 	 * @returns {String}
 	 */
 	static Right(fill:=" ", delim:="`n", exclude:="`r") {
-		fill:=SubStr(fill,1,1), longest := 0
+		fill:=SubStr(fill,1,1), longest := 0, new := ""
 		Loop parse, this, delim, exclude
 			if (StrLen(A_LoopField)>longest)
 				longest:=StrLen(A_LoopField)
