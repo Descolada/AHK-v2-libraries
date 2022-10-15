@@ -1,6 +1,6 @@
 ﻿/*
 	Name: String.ahk
-	Version 0.12 (12.09.22)
+	Version 0.13 (15.10.22)
 	Created: 27.08.22
 	Author: Descolada
 	Credit:
@@ -28,6 +28,7 @@
 	|       .Compare(comparison [, CaseSense])                                   |
 	|       .Sort([, Options, Function])                                         |
 	|       .Find(Needle [, CaseSense, StartingPos, Occurrence])                 |
+	|       .SplitPath()                                                         |
 	|		.RegExMatch(needleRegex, &match?, startingPos?)                      |
 	|		.RegExReplace(needle, replacement?, &count?, limit?, startingPos?)   |
 	|                                                                            |
@@ -58,19 +59,21 @@
 	'-==========================================================================-'
 */
 
-; Add String2 methods and properties into String object
-__ObjDefineProp := Object.Prototype.DefineProp
-for __String2_Prop in String2.OwnProps() {
-	if !(__String2_Prop ~= "__Init|__Item|Prototype|Length") {
-		if HasMethod(String2, __String2_Prop)
-			__ObjDefineProp(String.Prototype, __String2_Prop, {call:String2.%__String2_Prop%})
-	}
-}
-__ObjDefineProp(String.Prototype, "__Item", {get:(args*)=>String2.__Item[args*]})
-__ObjDefineProp(String.Prototype, "Length", {get:(arg)=>String2.Length(arg)})
-__ObjDefineProp(String.Prototype, "WLength", {get:(arg)=>String2.WLength(arg)})
-
 Class String2 {
+	static __New() {
+		; Add String2 methods and properties into String object
+		__ObjDefineProp := Object.Prototype.DefineProp
+		for __String2_Prop in String2.OwnProps() {
+			if !(__String2_Prop ~= "__Init|__Item|Prototype|Length") {
+				if HasMethod(String2, __String2_Prop)
+					__ObjDefineProp(String.Prototype, __String2_Prop, {call:String2.%__String2_Prop%})
+			}
+		}
+		__ObjDefineProp(String.Prototype, "__Item", {get:(args*)=>String2.__Item[args*]})
+		__ObjDefineProp(String.Prototype, "Length", {get:(arg)=>String2.Length(arg)})
+		__ObjDefineProp(String.Prototype, "WLength", {get:(arg)=>String2.WLength(arg)})
+	}
+
 	static __Item[args*] {
 		get {
 			if args.length = 2
@@ -102,6 +105,7 @@ Class String2 {
 	static Compare(args*) => StrCompare(this, args*)
 	static Sort(args*)    => Sort(this, args*)
 	static Find(args*)    => InStr(this, args*)
+	static SplitPath() => (SplitPath(this, &a1, &a2, &a3, &a4, &a5), {FileName: a1, Dir: a2, Ext: a3, NameNoExt: a4, Drive: a5})
 	/**
 	 * Returns the match object
 	 * @param needleRegex *String* What pattern to match
@@ -186,8 +190,8 @@ Class String2 {
 	}
 	static WReverse() {
 		str := this, out := "", m := ""
-		While RegexMatch(str, "s).", &m) && out := m[] out
-			str := RegExReplace(str, "s).",,,1)
+		While str && (m := Chr(Ord(str))) && (out := m . out)
+			str := SubStr(str,StrLen(m)+1)
 		return out
 	}
 
