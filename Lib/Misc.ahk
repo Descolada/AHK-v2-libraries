@@ -85,7 +85,7 @@ Swap(&a, &b) {
  *     If omitted then new settings (output function and newline) will be set.
  *     If value is an object/class that has a ToString() method, then the result of that will be printed.
  * @param func Optional: the print function to use. Default is OutputDebug.
- *     Not providing a function will cause the output to simply be returned.
+ *     Not providing a function will cause the Print output to simply be returned as a string.
  * @param newline Optional: the newline character to use (applied to the end of the value). 
  *     Default is newline (`n).
  */
@@ -104,7 +104,8 @@ Print(value?, func?, newline?) {
 	_Print(val?) {
 		if !IsSet(val)
 			return "unset"
-		switch Type(val), 0 {
+		valType := Type(val)
+		switch valType, 0 {
 			case "String":
 				return "'" val "'"
 			case "Integer", "Float":
@@ -112,7 +113,7 @@ Print(value?, func?, newline?) {
 			default:
 				self := "", iter := "", out := ""
 				try self := _Print(val.ToString()) ; if the object has ToString available, print it
-				if Type(val) != "Array" { ; enumerate object with key and value pair, except for array
+				if valType != "Array" { ; enumerate object with key and value pair, except for array
 					try {
 						enum := val.__Enum(2) 
 						while (enum.Call(&val1, &val2))
@@ -126,18 +127,33 @@ Print(value?, func?, newline?) {
 							iter .= _Print(enumVal?) ", "
 					}
 				}
-				if !IsSet(enum) && (Type(val) = "Object") && !self { ; if everything failed, enumerate Object props
+				if !IsSet(enum) && (valType = "Object") && !self { ; if everything failed, enumerate Object props
 					for k, v in val.OwnProps()
-						iter .= _Print(k) ":" _Print(v?) ", "
+						iter .= SubStr(_Print(k), 2, -1) ":" _Print(v?) ", "
 				}
 				iter := SubStr(iter, 1, StrLen(iter)-2)
-				if !self && !iter
-					return Type(val) ; if no additional info is available, only print out the type
+				if !self && !iter && !((valType = "Array" && val.Length = 0) || (valType = "Map" && val.Count = 0) || (valType = "Object" && ObjOwnPropCount(val) = 0))
+					return valType ; if no additional info is available, only print out the type
 				else if self && iter
 					out .= "value:" self ", iter:[" iter "]"
 				else
 					out .= self iter
-				return (Type(val) = "Object") ? "{" out "}" : (Type(val) = "Array") ? "[" out "]" : Type(val) "(" out ")"
+				return (valType = "Object") ? "{" out "}" : (valType = "Array") ? "[" out "]" : valType "(" out ")"
 		}
 	}
+}
+
+/**
+ * Returns all RegExMatch results in an array: [RegExMatchInfo1, RegExMatchInfo2, ...]
+ * @param Haystack The string whose content is searched.
+ * @param NeedleRegEx The RegEx pattern to search for.
+ * @param StartingPosition If StartingPos is omitted, it defaults to 1 (the beginning of Haystack).
+ * @returns {Array}
+ */
+RegExMatchAll(Haystack, NeedleRegEx, StartingPosition := 1) {
+	out := []
+	While StartingPosition := RegExMatch(Haystack, NeedleRegEx, &OutputVar, StartingPosition) {
+		out.Push(OutputVar), StartingPosition += OutputVar[0] ? StrLen(OutputVar[0]) : 1
+	}
+	return out
 }
