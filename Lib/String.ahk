@@ -6,6 +6,7 @@
 	Credit:
 	tidbit		--- Author of "String Things - Common String & Array Functions", from which
 					I copied/based a lot of methods
+	Contributors: Axlefublr, neogna2
 	Contributors to "String Things": AfterLemon, Bon, Lexikos, MasterFocus, Rseding91, Verdlin
 
 	Description:
