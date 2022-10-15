@@ -1,6 +1,6 @@
 ﻿/*
 	Name: Array.ahk
-	Version 0.1 (06.10.22)
+	Version 0.2 (13.10.22)
 	Created: 27.08.22
 	Author: Descolada
 	Credit: bichlepa (Sort method)
@@ -16,8 +16,8 @@
     Array.Reduce(func, initialValue?)       => Applies a function cumulatively to all the values in 
         the array, with an optional initial value.
     Array.IndexOf(value, start:=1)          => Finds a value in the array and returns its index.
-    Array.Find(func)                        => Finds a value satisfying the provided function and returns the value.
-    Array.FindIndex(func)                   => Finds a value satisfying the provided function and returns its index.
+    Array.Find(func, &match?, start:=1)     => Finds a value satisfying the provided function and returns the index.
+        match will be set to the found value. 
     Array.Reverse()                         => Reverses the array.
     Array.Count(value)                      => Counts the number of occurrences of a value.
     Array.Sort(Key?, Options?, Callback?)   => Sorts an array, optionally by object values.
@@ -39,21 +39,19 @@ class Array2 {
      * @returns {Array}
      */
     static Slice(start:=1, end:=0, step:=1) {
-        len := this.Length, i := start < 1 ? len + start : start, j := end < 1 ? len + end : end, r := [], reverse := False
-        if i < 1 || j > len
-            Throw IndexError("Slice: start or end value out of bounds", -1)
+        len := this.Length, i := start < 1 ? len + start : start, j := Min(end < 1 ? len + end : end, len), r := [], reverse := False
+        if len = 0
+            return []
+        if i < 1
+            i := 1
         if step = 0
             Throw Error("Slice: step cannot be 0",-1)
         else if step < 0 {
-            if i < j
-                Throw Error("Slice: if step is negative then start value must be greater than end value", -1)
             while i >= j {
                 r.Push(this[i])
                 i += step
             }
         } else {
-            if i > j
-                Throw Error("Slice: start value must be smaller than end value", -1)
             while i <= j {
                 r.Push(this[i])
                 i += step
@@ -83,9 +81,9 @@ class Array2 {
         if !HasMethod(func)
             throw ValueError("Map: func must be a function", -1)
         for i, v in this {
-            bf := func.Bind(v)
+            bf := func.Bind(v?)
             for _, vv in arrays
-                bf := bf.Bind(vv.Has(i) ? vv[i] : "")
+                bf := bf.Bind(vv.Has(i) ? vv[i] : unset)
             try bf := bf()
             this[i] := bf
         }
@@ -134,36 +132,36 @@ class Array2 {
      * @param start Optional: the index to start the search from. Default is 1.
      */
     static IndexOf(value, start:=1) {
+        if !IsInteger(start)
+            throw ValueError("IndexOf: start value must be an integer")
         for i, v in this {
             if i < start
                 continue
             if v == value
                 return i
         }
-    }
-    /**
-     * Finds a value satisfying the provided function and returns the value.
-     * @param func The condition function that accepts one argument.
-     * @example
-     * [1,2,3,4,5].Find((v) => (Mod(v,2) == 0)) ; returns 2
-     */
-    static Find(func) {
-        if !HasMethod(func)
-            throw ValueError("Find: func must be a function", -1)
-        for v in this
-            if func(v)
-                return v
+        return 0
     }
     /**
      * Finds a value satisfying the provided function and returns its index.
      * @param func The condition function that accepts one argument.
+     * @param match Optional: is set to the found value
+     * @param start Optional: the index to start the search from. Default is 1.
+     * @example
+     * [1,2,3,4,5].Find((v) => (Mod(v,2) == 0)) ; returns 2
      */
-    static FindIndex(func) {
+    static Find(func, &match?, start:=1) {
         if !HasMethod(func)
-            throw ValueError("FindIndex: func must be a function", -1)
-        for i, v in this
-            if func(v)
+            throw ValueError("Find: func must be a function", -1)
+        for i, v in this {
+            if i < start
+                continue
+            if func(v) {
+                match := v
                 return i
+            }
+        }
+        return 0
     }
     /**
      * Reverses the array.
@@ -178,13 +176,18 @@ class Array2 {
     }
     /**
      * Counts the number of occurrences of a value
-     * @param value The value to count
+     * @param value The value to count. Can also be a function.
      */
     static Count(value) {
         count := 0
-        for v in this
-            if v == value
-                count++
+        if HasMethod(value) {
+            for v in this
+                if value(v?)
+                    count++
+        } else
+            for v in this
+                if v == value
+                    count++
         return count
     }
     /**
@@ -233,7 +236,7 @@ class Array2 {
 		result := ""
 		for v in this
 			result .= v delim
-		return SubStr(result, 1, -StrLen(delim))
+		return (len := StrLen(delim)) ? SubStr(result, 1, -len) : result
 	}
     /**
      * Turns a nested array into a one-level array
