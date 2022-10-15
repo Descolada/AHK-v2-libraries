@@ -1,6 +1,6 @@
 ﻿/*
 	Name: Misc.ahk
-	Version 0.1 (26.08.22)
+	Version 0.2 (15.10.22)
 	Created: 26.08.22
 	Author: Descolada (https://www.autohotkey.com/boards/viewtopic.php?f=83&t=107759)
     Credit: Coco
@@ -9,6 +9,9 @@
 	Range(start, stop [, step])		=> Returns an iterable to count from start to stop with step
 	Swap(&a, &b)					=> Swaps the values of a and b
 	Print(value?, func?, newline?) 	=> Prints the formatted value of a variable (number, string, array, map, object)
+	RegExMatchAll(Haystack, NeedleRegEx, StartingPosition := 1)
+	    Returns all RegExMatch results (RegExMatchInfo objects) for NeedleRegEx in Haystack 
+		in an array: [RegExMatchInfo1, RegExMatchInfo2, ...]
 */
 
 /**
