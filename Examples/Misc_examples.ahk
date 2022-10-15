@@ -25,3 +25,10 @@ for v in Range(3)
         result .= v " " k "`n"
 Print(result)
 
+; ----------------- RegExMatchAll ----------------------
+
+result := ""
+matches := RegExMatchAll("a,bb,ccc", "\w+")
+for i, match in matches
+    result .= "Match " i ": " match[] "`n"
+Print(result)
