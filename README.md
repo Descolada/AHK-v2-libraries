@@ -41,6 +41,7 @@ String.ToUpper()
       .Compare(comparison [, CaseSense])
       .Sort([, Options, Function])
       .Find(Needle [, CaseSense, StartingPos, Occurrence])
+      .SplitPath() => returns object with keys FileName, Dir, Ext, NameNoExt, Drive
 	  .RegExMatch(needleRegex, &match?, startingPos?)
 	  .RegExReplace(needle, replacement?, &count?, limit?, startingPos?)
 ```
