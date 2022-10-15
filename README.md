@@ -13,6 +13,12 @@ Range(start, stop [, step ])
 Usage: `for v in Range(2,10)` -> loops from 2 to 10
 `for v in Range(10,1,-1)` -> loops from 10 to 1 backwards
 
+### RegExMatchAll
+Returns all RegExMatch results for NeedleRegEx in Haystack in an array: [RegExMatchInfo1, RegExMatchInfo2, ...]
+```
+RegExMatchAll(Haystack, NeedleRegEx, StartingPosition := 1)
+```
+
 ### Swap
 Swaps the values of two variables
 ```
@@ -85,8 +91,8 @@ Array.Filter(func)                      => Keeps only values that satisfy the pr
 Array.Reduce(func, initialValue?)       => Applies a function cumulatively to all the values in 
     the array, with an optional initial value.
 Array.IndexOf(value, start:=1)          => Finds a value in the array and returns its index.
-Array.Find(func)                        => Finds a value satisfying the provided function and returns the value.
-Array.FindIndex(func)                   => Finds a value satisfying the provided function and returns its index.
+Array.Find(func, &match?, start:=1)     => Finds a value satisfying the provided function and
+    returns the index. match will be set to the found value. 
 Array.Reverse()                         => Reverses the array.
 Array.Count(value)                      => Counts the number of occurrences of a value.
 Array.Sort(Key?, Options?, Callback?)   => Sorts an array, optionally by object values.
