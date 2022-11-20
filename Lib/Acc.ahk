@@ -189,7 +189,7 @@
 */
 
 #DllLoad oleacc
-;DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
+;DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr") ; For multi-monitor setups, otherwise coordinates might be reported wrong.
 
 if (!A_IsCompiled and A_LineFile=A_ScriptFullPath)
     Acc.Viewer()
@@ -1270,7 +1270,7 @@ class Acc {
                 if this.Stored.oAcc.IsEqual(v)
                     this.TVAcc.Modify(k, "Vis Select"), this.SBMain.SetText("  Path: " v.Path)
         }
-        RecurseTreeView(oAcc, parent:="", path:="") {
+        RecurseTreeView(oAcc, parent:=0, path:="") {
             this.Stored.TreeView[TWEl := this.TVAcc.Add(this.GetShortDescription(oAcc), parent, "Expand")] := oAcc.DefineProp("Path", {value:path})
             for k, v in oAcc
                 this.RecurseTreeView(v, TWEl, path (path?",":"") k)
