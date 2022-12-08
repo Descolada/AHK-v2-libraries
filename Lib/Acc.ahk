@@ -126,9 +126,10 @@
             Since index/i needs to be a key-value pair, then to use it with an "or" condition
             it must be inside an object ("and" condition), for example with key "or":
                 FindFirst({or:[{Name:"Something"}, {Name:"Something else"}], index:2})
-        FindAll(condition, scope:=4)
+        FindAll(condition:=True, scope:=4)
             Returns an array of elements matching the condition (see description under ValidateCondition)
             The returned elements also have the "Path" property with the found elements path
+            By default matches any condition.
         WaitElementExist(conditionOrPath, scope:=4, timeOut:=-1)
             Waits an element exist that matches a condition or a path. 
             Timeout less than 1 waits indefinitely, otherwise is the wait time in milliseconds
@@ -150,6 +151,7 @@
             Any other key (but recommended is "or") can be used to use "or" condition inside "and" condition.
             Additionally, when matching for location then partial matching can be used (eg only width and height)
                 and relative mode (client, window, screen) can be specified with "relative" or "r".
+            An empty object {} is used as "unset" or "N/A" value.
 
             {Name:"Something"} => Name must match "Something" (case sensitive)
             {Name:"Something", matchmode:2, casesensitive:False} => Name must contain "Something" anywhere inside the Name, case insensitive
@@ -159,6 +161,7 @@
             {or:[{Name:"Something"},{Name:"Something else"}], or2:[{Role:20},{Role:42}]}
             {Location:{w:200, h:100, r:"client"}} => Location must match width 200 and height 100 relative to client
         Dump(scope:=1)
+            {Name:{}} => Matches for no defined name (outputted by Dump as N/A)
             Outputs relevant information about the element (Name, Value, Location etc)
             Scope is the search scope: 1=element itself; 2=direct children; 4=descendants (including children of children); 7=whole subtree (including element)
                 The scope is additive: 3=element itself and direct children.
@@ -645,27 +648,28 @@ class Acc {
         }
 
         IsEqual(oCompare) {
-            try loc1 := this.Location, loc2 := oCompare.Location
-            catch 
-                return 0
+            loc1 := {x:0,y:0,w:0,h:0}, loc2 := {x:0,y:0,w:0,h:0}
+            try loc1 := this.Location
+            catch { ; loc1 unset
+                loc1 := {x:0,y:0,w:0,h:0}
+                try return oCompare.Location && 0 ; if loc2 is set then code will return
+            }
+            try loc2 := oCompare.Location
             if (loc1.x != loc2.x) || (loc1.y != loc2.y) || (loc1.w != loc2.w) || (loc1.h != loc2.h)
                 return 0
-            for _, v in ((loc1.x = 0) && (loc1.y = 0) && (loc1.w = 0) && (loc1.h = 0)) ? ["RoleText", "Role", "Value", "Name", "StateText", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help"] : ["Role", "Name"] {
+            for _, v in ((loc1.x = 0) && (loc1.y = 0) && (loc1.w = 0) && (loc1.h = 0)) ? ["Role", "Value", "Name", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help"] : ["Role", "Name"] {
                 try v1 := this.%v%
                 catch { ; v1 unset
                     try v2 := oCompare.%v%
-                    catch { ; both unset, continue
+                    catch ; both unset, continue
                         continue
-                    }
                     return 0 ; v1 unset, v2 set 
                 }
                 try v2 := oCompare.%v%
-                catch { ; v1 set, v2 unset
+                catch ; v1 set, v2 unset
                     return 0
-                } else {
-                    if v1 != v2 ; both set
-                        return 0
-                }
+                if v1 != v2 ; both set
+                    return 0
             }
             return 1
         }
@@ -709,7 +713,7 @@ class Acc {
         }
         ; Returns an array of elements matching the condition (see description under ValidateCondition)
         ; The returned elements also have the "Path" property with the found elements path
-        FindAll(condition, scope:=4) {
+        FindAll(condition:=True, scope:=4) {
             matches := []
             if scope&1
                 if this.ValidateCondition(condition)
@@ -779,7 +783,7 @@ class Acc {
         */
         ValidateCondition(oCond) {
             if !IsObject(oCond)
-                throw TypeError("Condition must be an object or array", -1)
+                return !!oCond ; if oCond is not an object, then it is treated as True or False condition
             if Type(oCond) = "Array" { ; or condition
                 for _, c in oCond
                     if this.ValidateCondition(c)
@@ -788,13 +792,11 @@ class Acc {
             }
             matchmode := 3, casesensitive := 1, notCond := False
             for p in ["matchmode", "mm"]
-                if oCond.HasOwnProp(p) {
+                if oCond.HasOwnProp(p)
                     matchmode := oCond.%p%
-                }
             for p in ["casesensitive", "cs"]
-                if oCond.HasOwnProp(p) {
+                if oCond.HasOwnProp(p)
                     casesensitive := oCond.%p%
-                }
             for prop, cond in oCond.OwnProps() {
                 switch Type(cond) { ; and condition
                     case "String", "Integer":
@@ -820,12 +822,18 @@ class Acc {
                         if (prop="IsEqual") ? !this.IsEqual(cond) : !this.ValidateCondition(cond)
                             return 0
                     default:
-                        if (prop = "Location") {
-                            loc := cond.HasOwnProp("relative") ? this.GetLocation(cond.relative) 
+                        if ObjOwnPropCount(cond) == 0 {
+                            try return this.%prop% && 0
+                            catch
+                                return 1
+                        } else if (prop = "Location") {
+                            try loc := cond.HasOwnProp("relative") ? this.GetLocation(cond.relative) 
                                 : cond.HasOwnProp("r") ? this.GetLocation(cond.r) 
                                 : this.Location
+                            catch
+                                return 0
                             for lprop, lval in cond.OwnProps() {
-                                if ((lprop != "relative") && (lprop != "r") && (loc.%lprop% != lval))
+                                if (!((lprop = "relative") || (lprop = "r")) && (loc.%lprop% != lval))
                                     return 0
                             }
                         } else if ((prop = "not") ? this.ValidateCondition(cond) : !this.ValidateCondition(cond))
@@ -838,11 +846,10 @@ class Acc {
         Dump(scope:=1) {
             out := ""
             if scope&1 {
-                RoleText := "N/A", Role := "N/A", Value := "N/A", Name := "N/A", StateText := "N/A", State := "N/A", DefaultAction := "N/A", Description := "N/A", KeyboardShortcut := "N/A", Help := "N/A", Pos := {x:0,y:0,w:0,h:0}
-                for _, v in ["RoleText", "Role", "Value", "Name", "StateText", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help"]
+                RoleText := "N/A", Role := "N/A", Value := "N/A", Name := "N/A", StateText := "N/A", State := "N/A", DefaultAction := "N/A", Description := "N/A", KeyboardShortcut := "N/A", Help := "N/A", Location := {x:"N/A",y:"N/A",w:"N/A",h:"N/A"}
+                for _, v in ["RoleText", "Role", "Value", "Name", "StateText", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help", "Location"]
                     try %v% := this.%v%
-                try Pos := this.Location
-                out := "RoleText: " RoleText " Role: " Role " [Location: {x:" Pos.x ",y:" Pos.y ",w:" Pos.w ",h:" Pos.h "}]" " [Name: " Name "] [Value: " Value  "]" (StateText ? " [StateText: " StateText "]" : "") (State ? " [State: " State "]" : "") (DefaultAction ? " [DefaultAction: " DefaultAction "]" : "") (Description ? " [Description: " Description "]" : "") (KeyboardShortcut ? " [KeyboardShortcut: " KeyboardShortcut "]" : "") (Help ? " [Help: " Help "]" : "") (this.childId ? " ChildId: " this.childId : "")
+                out := "RoleText: " RoleText " Role: " Role " [Location: {x:" Location.x ",y:" Location.y ",w:" Location.w ",h:" Location.h "}]" " [Name: " Name "] [Value: " Value  "]" (StateText ? " [StateText: " StateText "]" : "") (State ? " [State: " State "]" : "") (DefaultAction ? " [DefaultAction: " DefaultAction "]" : "") (Description ? " [Description: " Description "]" : "") (KeyboardShortcut ? " [KeyboardShortcut: " KeyboardShortcut "]" : "") (Help ? " [Help: " Help "]" : "") (this.childId ? " ChildId: " this.childId : "")
             }
             if scope&4
                 return Trim(RecurseTree(this, out), "`n")
@@ -1202,7 +1209,7 @@ class Acc {
             Acc.ClearHighlights() ; Clear
             oAcc.Highlight(0) ; Indefinite show
             this.LVProps.Delete()
-            Location := {x:0,y:0,w:0,h:0}, RoleText := "N/A", Role := "N/A", Value := "N/A", Name := "N/A", StateText := "N/A", State := "N/A", DefaultAction := "N/A", Description := "N/A", KeyboardShortcut := "N/A", Help := "N/A", ChildId := ""
+            Location := {x:"N/A",y:"N/A",w:"N/A",h:"N/A"}, RoleText := "N/A", Role := "N/A", Value := "N/A", Name := "N/A", StateText := "N/A", State := "N/A", DefaultAction := "N/A", Description := "N/A", KeyboardShortcut := "N/A", Help := "N/A", ChildId := ""
             for _, v in ["RoleText", "Role", "Value", "Name", "Location", "StateText", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help", "ChildId"] {
                 try %v% := oAcc.%v%
                 this.LVProps.Add(,v, v = "Location" ? ("x: " %v%.x " y: " %v%.y " w: " %v%.w " h: " %v%.h) : %v%)
