@@ -147,7 +147,9 @@
             "not" key creates a not condition
             "matchmode" key (short form: "mm") defines the MatchMode: 1=must start with; 2=can contain anywhere in string; 3=exact match; RegEx
             "casesensitive" key (short form: "cs") defines case sensitivity: True=case sensitive; False=case insensitive
-            Any other key (but usually "or") can be used to use "or" condition inside "and" condition.
+            Any other key (but recommended is "or") can be used to use "or" condition inside "and" condition.
+            Additionally, when matching for location then partial matching can be used (eg only width and height)
+                and relative mode (client, window, screen) can be specified with "relative" or "r".
 
             {Name:"Something"} => Name must match "Something" (case sensitive)
             {Name:"Something", matchmode:2, casesensitive:False} => Name must contain "Something" anywhere inside the Name, case insensitive
@@ -155,6 +157,7 @@
             [{Name:"Something", Role:42}, {Name:"Something2", RoleText:"something else"}] => Name=="Something" and Role==42 OR Name=="Something2" and RoleText=="something else"
             {Name:"Something", not:[{RoleText:"something", mm:2}, {RoleText:"something else", cs:1}]} => Name must match "something" and RoleText cannot match "something" (with matchmode=2) nor "something else" (casesensitive matching)
             {or:[{Name:"Something"},{Name:"Something else"}], or2:[{Role:20},{Role:42}]}
+            {Location:{w:200, h:100, r:"client"}} => Location must match width 200 and height 100 relative to client
         Dump(scope:=1)
             Outputs relevant information about the element (Name, Value, Location etc)
             Scope is the search scope: 1=element itself; 2=direct children; 4=descendants (including children of children); 7=whole subtree (including element)
@@ -818,8 +821,11 @@ class Acc {
                             return 0
                     default:
                         if (prop = "Location") {
-                            for lprop, lval in cond {
-                                if this.%lprop% != lval
+                            loc := cond.HasOwnProp("relative") ? this.GetLocation(cond.relative) 
+                                : cond.HasOwnProp("r") ? this.GetLocation(cond.r) 
+                                : this.Location
+                            for lprop, lval in cond.OwnProps() {
+                                if ((lprop != "relative") && (lprop != "r") && (loc.%lprop% != lval))
                                     return 0
                             }
                         } else if ((prop = "not") ? this.ValidateCondition(cond) : !this.ValidateCondition(cond))
