@@ -822,7 +822,7 @@ class Acc {
                         if (prop="IsEqual") ? !this.IsEqual(cond) : !this.ValidateCondition(cond)
                             return 0
                     default:
-                        if ObjOwnPropCount(cond) == 0 {
+                        if (HasProp(cond, "Length") ? cond.Length = 0 : ObjOwnPropCount(cond) = 0) {
                             try return this.%prop% && 0
                             catch
                                 return 1
