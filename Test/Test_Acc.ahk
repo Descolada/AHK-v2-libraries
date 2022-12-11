@@ -28,6 +28,8 @@ class AccTestSuite {
         DUnit.Equal(this.oAcc[4,{Name:"Status Bar"}].Dump(), this.oAcc[4,2].Dump())
         DUnit.NotEqual(this.oAcc[4,{Name:"Text Editor"}].Dump(), this.oAcc[4,2].Dump())
         DUnit.Equal(this.oAcc[4,-1,-4,-3].Dump(), "RoleText: text Role: 41 [Location: {x:1086,y:831,w:73,h:34}] [Name:  100%] [Value: ] [StateText: normal] [KeyboardShortcut: N/A] ChildId: 3")
+        oEdit := this.oAcc[4,1,4]
+        DUnit.Equal(this.oAcc[4,1].Dump(), oEdit["p2,1"].Dump())
     }
     Test_ControlID_WinID() {
         oEdit := this.oAcc[4,1,4]

@@ -59,7 +59,7 @@
             Unhooking of the event handler will happen once the returned object is destroyed
             (either when overwritten by a constant, or when the script closes).
         ClearHighlights()
-            Removes all highlights created by Element.Highlight
+            Removes all highlights created by IAccessible.Highlight
 
         Legacy methods:
         SetWinEventHook(eventMin, eventMax, pCallback)
@@ -72,6 +72,11 @@
     IAccessible element properties:
         Element[n]          => Gets the nth element. Multiple of these can be used like a path:
                                     Element[4,1,4] will select 4th childs 1st childs 4th child
+                               Path string can also be used with comma-separated numbers or RoleText
+                                    Element["4,window,4"] will select 4th childs first RoleText=window childs 4th child
+                                    Element["4,window2,4"] will select the second RoleText=window
+                               With a path string "p" followed by a number n will return the nth parent.
+                                    Element["p2,2"] will get the parent parents second child
                                Conditions (see ValidateCondition) are supported: 
                                     Element[4,{Name:"Something"}] will select the fourth childs first child matching the name "Something"
                                Conditions also accept an index (or i) parameter to select from multiple similar elements
@@ -81,8 +86,6 @@
                                Since index/i needs to be a key-value pair, then to use it with an "or" condition
                                it must be inside an object ("and" condition), for example with key "or":
                                     Element[{or:[{Name:"Something"},{Name:"Something else"}], i:2}]
-                               Path string can also be used with comma-separated numbers or RoleText
-                                    Element["4,window,4"] will select 4th childs first RoleText=window childs 4th child
         Name                => Gets or sets the name. All objects support getting this property.
         Value               => Gets or sets the value. Not all objects have a value.
         Role                => Gets the Role of the specified object in integer form. All objects support this property.
@@ -114,7 +117,7 @@
         DoDefaultAction()
             Performs the specified object's default action. Not all objects have a default action.
         GetNthChild(n)
-            This is equal to element[n]. Negative indexes are supported: -1 will return the last child element.
+            This is equal to element[n]
         GetPath(oTarget)
             Returns the path from the current element to oTarget element.
             The returned path is a comma-separated list of integers corresponding to the order the 
@@ -1005,6 +1008,7 @@ class Acc {
          * Outputs relevant information about the element
          * @param scope The search scope: 1=element itself; 2=direct children; 4=descendants (including children of children).
          *     The scope is additive: 3=element itself and direct children. Default is self.
+         * @returns {Acc.IAccessible}
          */
         Dump(scope:=1) {
             out := ""
@@ -1227,6 +1231,11 @@ class Acc {
                 oAcc := oAcc.GetNthChild(A_LoopField)
             else {
                 RegExMatch(A_LoopField, "(\D+)(\d*)", &m), i := m[2] || 1, c := 0
+                if m[1] = "p" {
+                    Loop i
+                        oAcc := oAcc.Parent
+                    continue
+                }
                 for oChild in oAcc {
                     try {
                         if (StrReplace(oChild.RoleText, " ") = m[1]) && (++c = i) {
