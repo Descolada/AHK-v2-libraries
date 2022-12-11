@@ -128,7 +128,7 @@
             relativeTo can be client, window or screen, default is A_CoordModeMouse.
         IsEqual(oCompare)
             Checks whether the element is equal to another element (oCompare)
-        FindFirst(condition, scope:=4) 
+        FindFirst(condition, scope:=4, maxDepth:=-1) 
             Finds the first element matching the condition (see description under ValidateCondition)
             Scope is the search scope: 1=element itself; 2=direct children; 4=descendants (including children of children)
                 The scope is additive: 3=element itself and direct children.
@@ -141,16 +141,16 @@
             Since index/i needs to be a key-value pair, then to use it with an "or" condition
             it must be inside an object ("and" condition), for example with key "or":
                 FindFirst({or:[{Name:"Something"}, {Name:"Something else"}], index:2})
-        FindAll(condition:=True, scope:=4)
+        FindAll(condition:=True, scope:=4, maxDepth:=-1)
             Returns an array of elements matching the condition (see description under ValidateCondition)
             The returned elements also have the "Path" property with the found elements path
             By default matches any condition.
-        WaitElement(conditionOrPath, scope:=4, timeOut:=-1)
+        WaitElement(conditionOrPath, scope:=4, timeOut:=-1, maxDepth:=-1)
             Waits an element to be detectable in the Acc tree. This doesn't mean that the element
             is visible or interactable, use WaitElementExist for that. 
             Timeout less than 1 waits indefinitely, otherwise is the wait time in milliseconds
             A timeout returns 0.
-        WaitElementExist(conditionOrPath, scope:=4, timeOut:=-1)
+        WaitElementExist(conditionOrPath, scope:=4, timeOut:=-1, maxDepth:=-1)
             Waits an element exist that matches a condition or a path. 
             Timeout less than 1 waits indefinitely, otherwise is the wait time in milliseconds
             A timeout returns 0.
@@ -180,12 +180,12 @@
             {Name:"Something", not:[{RoleText:"something", mm:2}, {RoleText:"something else", cs:1}]} => Name must match "something" and RoleText cannot match "something" (with matchmode=2) nor "something else" (casesensitive matching)
             {or:[{Name:"Something"},{Name:"Something else"}], or2:[{Role:20},{Role:42}]}
             {Location:{w:200, h:100, r:"client"}} => Location must match width 200 and height 100 relative to client
-        Dump(scope:=1)
+        Dump(scope:=1, maxDepth:=-1)
             {Name:{}} => Matches for no defined name (outputted by Dump as N/A)
             Outputs relevant information about the element (Name, Value, Location etc)
             Scope is the search scope: 1=element itself; 2=direct children; 4=descendants (including children of children); 7=whole subtree (including element)
                 The scope is additive: 3=element itself and direct children.
-        DumpAll()
+        DumpAll(maxDepth:=-1)
             Outputs relevant information about the element and all descendants of the element. This is equivalent to Dump(7)
         Highlight(showTime:=unset, color:="Red", d:=2)
             Highlights the element for a chosen period of time
@@ -799,10 +799,11 @@ class Acc {
          * The returned element also has a "Path" property with the found elements path
          * @param condition Condition object (see ValidateCondition)
          * @param scope The search scope: 1=element itself; 2=direct children; 4=descendants (including children of children). Default is descendants.
+         * @param maxDepth Maximum level of depth for the search. Default is no limit.
          * @returns {Acc.IAccessible}
          */
-        FindFirst(condition, scope:=4) {
-            index := 1, reverse := False
+        FindFirst(condition, scope:=4, maxDepth:=-1) {
+            index := 1, reverse := False, ++maxDepth
             for i in ["index", "i"]
                 if condition.HasOwnProp(i) {
                     if (index := condition.%i%) < 0
@@ -815,22 +816,23 @@ class Acc {
                 if this.ValidateCondition(condition) && (--index = 0)
                     return this.DefineProp("Path", {value:""})
             if scope>1
-                return reverse ? ReverseRecursiveFind(this, condition, scope) : RecursiveFind(this, condition, scope)
-            RecursiveFind(element, condition, scope:=4, path:="") {
+                return reverse ? ReverseRecursiveFind(this, condition, scope,, maxDepth) : RecursiveFind(this, condition, scope,,maxDepth)
+            RecursiveFind(element, condition, scope:=4, path:="", maxDepth:=-1) {
+                --maxDepth
                 for i, child in element.Children {
                     if child.ValidateCondition(condition) && (--index = 0)
                         return child.DefineProp("Path", {value:path (path?",":"") i})
-                    else if scope&4 && (rf := RecursiveFind(child, condition,, path (path?",":"") i))
+                    else if (scope&4) && (maxDepth != 0) && (rf := RecursiveFind(child, condition,, path (path?",":"") i, maxDepth))
                         return rf 
                 }
             }
-            ReverseRecursiveFind(element, condition, scope:=4, path:="") {
-                children := element.Children, length := children.Length + 1
+            ReverseRecursiveFind(element, condition, scope:=4, path:="", maxDepth:=-1) {
+                children := element.Children, length := children.Length + 1, --maxDepth
                 Loop (length - 1) {
                     child := children[length-A_index]
                     if child.ValidateCondition(condition) && (--index = 0)
                         return child.DefineProp("Path", {value:path (path?",":"") A_index})
-                    else if scope&4 && (rf := ReverseRecursiveFind(child, condition,, path (path?",":"") A_index))
+                    else if scope&4 && (maxDepth != 0) && (rf := ReverseRecursiveFind(child, condition,, path (path?",":"") A_index, maxDepth))
                         return rf 
                 }
             }
@@ -840,23 +842,25 @@ class Acc {
          * The returned elements also have the "Path" property with the found elements path
          * @param condition Condition object (see ValidateCondition). Default is to match any condition.
          * @param scope The search scope: 1=element itself; 2=direct children; 4=descendants (including children of children). Default is descendants.
+         * @param maxDepth Maximum level of depth for the search. Default is no limit.
          * @returns {[Acc.IAccessible]}
          */
-        FindAll(condition:=True, scope:=4) {
-            matches := []
+        FindAll(condition:=True, scope:=4, maxDepth:=-1) {
+            matches := [], ++maxDepth
             if scope&1
                 if this.ValidateCondition(condition)
                     matches.Push(this.DefineProp("Path", {value:""}))
             if scope>1
-                RecursiveFind(this, condition, (scope|1)^1, &matches)
+                RecursiveFind(this, condition, (scope|1)^1, &matches,, maxDepth)
             return matches
-            RecursiveFind(element, condition, scope, &matches, path:="") {
+            RecursiveFind(element, condition, scope, &matches, path:="", maxDepth:=-1) {
                 if scope>1 {
+                    --maxDepth
                     for i, child in element {
                         if child.ValidateCondition(condition)
                             matches.Push(child.DefineProp("Path", {value:path (path?",":"") i}))
-                        if scope&4
-                            RecursiveFind(child, condition, scope, &matches, path (path?",":"") i)
+                        if scope&4 && (maxDepth != 0)
+                            RecursiveFind(child, condition, scope, &matches, path (path?",":"") i, maxDepth)
                     }
                 }
             }          
@@ -868,12 +872,13 @@ class Acc {
          * @param conditionOrPath Condition object (see ValidateCondition), or Acc path as a string (comma-separated numbers)
          * @param scope The search scope: 1=element itself; 2=direct children; 4=descendants (including children of children). Default is descendants.
          * @param timeOut Timeout in milliseconds. Default in indefinite waiting.
+         * @param maxDepth Maximum level of depth for the search. Default is no limit.
          * @returns {Acc.IAccessible}
          */
-        WaitElement(conditionOrPath, scope:=4, timeOut:=-1) {
+        WaitElement(conditionOrPath, scope:=4, timeOut:=-1, maxDepth:=-1) {
             waitTime := A_TickCount + timeOut
             while ((timeOut < 1) ? 1 : (A_tickCount < waitTime)) {
-                try return IsObject(conditionOrPath) ? this.FindFirst(conditionOrPath, scope) : this[conditionOrPath]
+                try return IsObject(conditionOrPath) ? this.FindFirst(conditionOrPath, scope, maxDepth) : this[conditionOrPath]
                 Sleep 40
             }
         }
@@ -882,13 +887,14 @@ class Acc {
          * @param conditionOrPath Condition object (see ValidateCondition), or Acc path as a string (comma-separated numbers)
          * @param scope The search scope: 1=element itself; 2=direct children; 4=descendants (including children of children). Default is descendants.
          * @param timeOut Timeout in milliseconds. Default in indefinite waiting.
+         * @param maxDepth Maximum level of depth for the search. Default is no limit.
          * @returns {Acc.IAccessible}
          */
-         WaitElementExist(conditionOrPath, scope:=4, timeOut:=-1) {
+         WaitElementExist(conditionOrPath, scope:=4, timeOut:=-1, maxDepth:=-1) {
             waitTime := A_TickCount + timeOut
             while ((timeOut < 1) ? 1 : (A_tickCount < waitTime)) {
                 try {
-                    oFind := IsObject(conditionOrPath) ? this.FindFirst(conditionOrPath, scope) : this[conditionOrPath]
+                    oFind := IsObject(conditionOrPath) ? this.FindFirst(conditionOrPath, scope, maxDepth) : this[conditionOrPath]
                     if oFind.Exists
                         return oFind
                 }
@@ -1008,9 +1014,10 @@ class Acc {
          * Outputs relevant information about the element
          * @param scope The search scope: 1=element itself; 2=direct children; 4=descendants (including children of children).
          *     The scope is additive: 3=element itself and direct children. Default is self.
-         * @returns {Acc.IAccessible}
+         * @param maxDepth Maximum number of levels to dump. Default is no limit.
+         * @returns {String}
          */
-        Dump(scope:=1) {
+        Dump(scope:=1, maxDepth:=-1) {
             out := ""
             if scope&1 {
                 RoleText := "N/A", Role := "N/A", Value := "N/A", Name := "N/A", StateText := "N/A", State := "N/A", DefaultAction := "N/A", Description := "N/A", KeyboardShortcut := "N/A", Help := "N/A", Location := {x:"N/A",y:"N/A",w:"N/A",h:"N/A"}
@@ -1019,14 +1026,19 @@ class Acc {
                 out := "RoleText: " RoleText " Role: " Role " [Location: {x:" Location.x ",y:" Location.y ",w:" Location.w ",h:" Location.h "}]" " [Name: " Name "] [Value: " Value  "]" (StateText ? " [StateText: " StateText "]" : "") (State ? " [State: " State "]" : "") (DefaultAction ? " [DefaultAction: " DefaultAction "]" : "") (Description ? " [Description: " Description "]" : "") (KeyboardShortcut ? " [KeyboardShortcut: " KeyboardShortcut "]" : "") (Help ? " [Help: " Help "]" : "") (this.childId ? " ChildId: " this.childId : "") "`n"
             }
             if scope&4
-                return Trim(RecurseTree(this, out), "`n")
+                return Trim(RecurseTree(this, out,, maxDepth), "`n")
             if scope&2 {
                 for n, oChild in this.Children
                     out .= n ": " oChild.Dump() "`n"
             }
             return Trim(out, "`n")
 
-            RecurseTree(oAcc, tree, path:="") {
+            RecurseTree(oAcc, tree, path:="", maxDepth:=-1) {
+                if maxDepth > 0 {
+                    StrReplace(path, "," , , , &count)
+                    if count >= (maxDepth-1)
+                        return tree
+                }
                 try {
                     if !oAcc.Length
                         return tree
@@ -1035,13 +1047,17 @@ class Acc {
                 
                 For i, oChild in oAcc.Children {
                     tree .= path (path?",":"") i ": " oChild.Dump() "`n"
-                    tree := RecurseTree(oChild, tree, path (path?",":"") i)
+                    tree := RecurseTree(oChild, tree, path (path?",":"") i, maxDepth)
                 }
                 return tree
             }
         }
-        ; Outputs relevant information about the element and all its descendants.
-        DumpAll() => this.Dump(5)
+        /**
+         * Outputs relevant information about the element and all its descendants.
+         * @param maxDepth Maximum number of levels to dump. Default is no limit.
+         * @returns {String}
+         */
+        DumpAll(maxDepth:=-1) => this.Dump(5, maxDepth)
         ; Same as Dump()
         ToString() => this.Dump()
 
