@@ -20,7 +20,9 @@ class AccTestSuite {
     Test_Item() {
         DUnit.Equal(this.oAcc.Dump(), "RoleText: window Role: 9 [Location: {x:0,y:0,w:1530,h:876}] [Name: Untitled - Notepad] [Value: ] [StateText: focusable] [State: 1441792] [Help: N/A]")
         DUnit.Equal(this.oAcc[4,2,4,3].Dump(), "RoleText: text Role: 41 [Location: {x:1086,y:831,w:73,h:34}] [Name:  100%] [Value: ] [StateText: normal] [KeyboardShortcut: N/A] ChildId: 3", "Item only by indexes")
-        DUnit.Equal(this.oAcc[4,2,"status bar",3].Dump(), "RoleText: text Role: 41 [Location: {x:1086,y:831,w:73,h:34}] [Name:  100%] [Value: ] [StateText: normal] [KeyboardShortcut: N/A] ChildId: 3", "Item by RoleText")
+        DUnit.Equal(this.oAcc[4,2,"menu bar"].Dump(), "RoleText: menu bar Role: 2 [Location: {x:0,y:0,w:0,h:0}] [Name: System] [Value: ] [StateText: invisible] [State: 32768] [DefaultAction: N/A] [Description: Contains commands to manipulate the window]", "Item by RoleText 1")
+        DUnit.Equal(this.oAcc[4,2,"menu bar 2"].Dump(), "RoleText: menu bar Role: 2 [Location: {x:0,y:0,w:0,h:0}] [Name: Application] [Value: ] [StateText: invisible] [State: 32768] [DefaultAction: N/A] [Description: Contains commands to manipulate the current view or document]", "Item by RoleText and index")
+        DUnit.Equal(this.oAcc[4,2,"status bar",3].Dump(), "RoleText: text Role: 41 [Location: {x:1086,y:831,w:73,h:34}] [Name:  100%] [Value: ] [StateText: normal] [KeyboardShortcut: N/A] ChildId: 3", "Item by RoleText 2")
         DUnit.Equal(this.oAcc["4.2.status bar.3"].Dump(), "RoleText: text Role: 41 [Location: {x:1086,y:831,w:73,h:34}] [Name:  100%] [Value: ] [StateText: normal] [KeyboardShortcut: N/A] ChildId: 3", "Item by string indexes and RoleText")
         DUnit.Equal(this.oAcc[4,-1].Dump(), this.oAcc[4,2].Dump())
         DUnit.Equal(this.oAcc[4,{Name:"Status Bar"}].Dump(), this.oAcc[4,2].Dump())

@@ -59,7 +59,7 @@
             Unhooking of the event handler will happen once the returned object is destroyed
             (either when overwritten by a constant, or when the script closes).
         ClearHighlights()
-            Removes all highlights created by IAccessible.Highlight
+            Removes all highlights created by Element.Highlight
 
         Legacy methods:
         SetWinEventHook(eventMin, eventMax, pCallback)
@@ -114,7 +114,7 @@
         DoDefaultAction()
             Performs the specified object's default action. Not all objects have a default action.
         GetNthChild(n)
-            This is equal to element[n]
+            This is equal to element[n]. Negative indexes are supported: -1 will return the last child element.
         GetPath(oTarget)
             Returns the path from the current element to oTarget element.
             The returned path is a comma-separated list of integers corresponding to the order the 
@@ -1225,15 +1225,17 @@ class Acc {
         {
             if IsInteger(A_LoopField)
                 oAcc := oAcc.GetNthChild(A_LoopField)
-            else
+            else {
+                RegExMatch(A_LoopField, "(\D+)(\d*)", &m), i := m[2] || 1, c := 0
                 for oChild in oAcc {
                     try {
-                        if StrReplace(oChild.RoleText, " ") = A_LoopField {
+                        if (StrReplace(oChild.RoleText, " ") = m[1]) && (++c = i) {
                             oAcc := oChild
                             break
                         }
                     }
                 }
+            }
         }
         Return oAcc
     }
