@@ -48,9 +48,12 @@
             app to be accessible to Acc. This is called when ObjectFromPoint or ObjectFromWindow 
             activateChromium flag is set to True. A small performance increase may be gotten 
             if that flag is set to False when it is not needed.
-        RegisterWinEvent(event, callback) 
-            Registers an event from Acc.EVENT to a callback function and returns a new object
-                containing the WinEventHook
+        RegisterWinEvent(eventMin[, eventMax], callback) 
+            Registers an event or event range from Acc.EVENT to a callback function and returns
+                a new object containing the WinEventHook
+            EventMax is an optional variable: if only eventMin and callback are provided, then
+                only that single event is registered. If all three arguments are provided, then
+                an event range from eventMin to eventMax are registered to the callback function.
             The callback function needs to have three arguments: 
                 CallbackFunction(oAcc, Event, EventTime)
             Unhooking of the event handler will happen once the returned object is destroyed
@@ -625,7 +628,7 @@ class Acc {
         }
         ; Returns the child count of this object
         Length => (this.childId == 0 ? this.oAcc.accChildCount : 0)
-        ; Checks whether this object still exists
+        ; Checks whether this object still exists and is visible/accessible
         Exists {
             get {
                 try {
@@ -1328,13 +1331,15 @@ class Acc {
     /**
      * Registers an event to the provided callback function.
      * Returns an event handler object, that once destroyed will unhook the event.
-     * @param event One of the EVENT constants
+     * @param eventMin One of the EVENT constants
+     * @param eventMax Optional: one of the EVENT constants, which if provided will register 
+     *     a range of events from eventMin to eventMax
      * @param callback The callback function with three mandatory arguments: CallbackFunction(oAcc, Event, EventTime)
      * @returns {Object}
      */
-    static RegisterWinEvent(event, callback) {
-        pCallback := CallbackCreate(this.GetMethod("HandleWinEvent").Bind(this, callback), "F", 7)
-        hook := Acc.SetWinEventHook(event,event,pCallback)
+    static RegisterWinEvent(eventMin, eventMax, callback?) {
+        pCallback := CallbackCreate(this.GetMethod("HandleWinEvent").Bind(this, IsSet(callback) ? callback : eventMax), "F", 7)
+        hook := Acc.SetWinEventHook(eventMin, IsSet(callback) ? eventMax : eventMin, pCallback)
         return {__Hook:hook, __Callback:pCallback, __Delete:{ call: (*) => (this.UnhookWinEvent(hook), CallbackFree(pCallback)) }}
     }
     ; Internal method. Calls the callback function after wrapping the IAccessible native object
