@@ -48,14 +48,25 @@
             app to be accessible to Acc. This is called when ObjectFromPoint or ObjectFromWindow 
             activateChromium flag is set to True. A small performance increase may be gotten 
             if that flag is set to False when it is not needed.
-        RegisterWinEvent(eventMin[, eventMax], callback) 
+        RegisterWinEvent(eventMin[, eventMax], callback, PID:=0) 
             Registers an event or event range from Acc.EVENT to a callback function and returns
                 a new object containing the WinEventHook
             EventMax is an optional variable: if only eventMin and callback are provided, then
                 only that single event is registered. If all three arguments are provided, then
                 an event range from eventMin to eventMax are registered to the callback function.
-            The callback function needs to have three arguments: 
-                CallbackFunction(oAcc, Event, EventTime)
+            The callback function needs to have two arguments: 
+                CallbackFunction(oAcc, EventInfo)
+
+                When the callback function is called:
+                oAcc will be the Acc element that called the event
+                EventInfo will be an object containing the following properties: 
+                    Event - an Acc.EVENT constant
+                    EventTime - when the event was triggered in system time
+                    WinID - handle of the window that sent the event 
+                    ControlID - handle of the control that sent the event, which depending on the
+                        window will be the window itself or a control
+            PID is the Process ID of the process/window the events will be registered from. By default
+                events from all windows are registered.
             Unhooking of the event handler will happen once the returned object is destroyed
             (either when overwritten by a constant, or when the script closes).
         ClearHighlights()
@@ -450,6 +461,11 @@ class Acc {
         , OBJECT_HELPCHANGE:0x8010
         , OBJECT_DEFACTIONCHANGE:0x8011
         , OBJECT_ACCELERATORCHANGE:0x8012}.DefineProp("__Item", this.PropertyValueGetter)
+    
+    static WINEVENT := {OUTOFCONTEXT:0
+        , SKIPOWNTHREAD:1
+        , SKIPOWNPROCESS:2
+        , INCONTEXT:3}.DefineProp("__Item", this.PropertyValueGetter)
     
     static __HighlightGuis := Map()
 
@@ -1362,22 +1378,25 @@ class Acc {
      * @param eventMax Optional: one of the EVENT constants, which if provided will register 
      *     a range of events from eventMin to eventMax
      * @param callback The callback function with three mandatory arguments: CallbackFunction(oAcc, Event, EventTime)
+     * @param PID Optional: Process ID from which to register events. Default is all processes.
      * @returns {Object}
      */
-    static RegisterWinEvent(eventMin, eventMax, callback?) {
-        pCallback := CallbackCreate(this.GetMethod("HandleWinEvent").Bind(this, IsSet(callback) ? callback : eventMax), "F", 7)
-        hook := Acc.SetWinEventHook(eventMin, IsSet(callback) ? eventMax : eventMin, pCallback)
+    static RegisterWinEvent(eventMin, eventMax, callback:=0, PID:=0) {
+        if !IsNumber(eventMax)
+            PID := callback, callback := eventMax, eventMax := eventMin
+        pCallback := CallbackCreate(this.GetMethod("HandleWinEvent").Bind(this, callback), "F", 7)
+        hook := Acc.SetWinEventHook(eventMin, eventMax, pCallback, PID)
         return {__Hook:hook, __Callback:pCallback, __Delete:{ call: (*) => (this.UnhookWinEvent(hook), CallbackFree(pCallback)) }}
     }
     ; Internal method. Calls the callback function after wrapping the IAccessible native object
     static HandleWinEvent(fCallback, hWinEventHook, Event, hWnd, idObject, idChild, dwEventThread, dwmsEventTime) {
         Critical
-        return fCallback(Acc.ObjectFromEvent(hWnd, idObject, idChild), Event, dwmsEventTime&0x7FFFFFFF)
+        try return fCallback(oAcc := Acc.ObjectFromEvent(hWnd, idObject, idChild), {Event:Event, EventThread:dwEventThread, EventTime:dwmsEventTime&0x7FFFFFFF, ControlID:hWnd, WinID:oAcc.wId})
     }
     ; Internal method. Hooks a range of events to a callback function.
-    static SetWinEventHook(eventMin, eventMax, pCallback) {
+    static SetWinEventHook(eventMin, eventMax, pCallback, PID:=0) {
         DllCall("ole32\CoInitialize", "Uint", 0)
-        Return DllCall("SetWinEventHook", "Uint", eventMin, "Uint", eventMax, "Uint", 0, "UInt", pCallback, "Uint", 0, "Uint", 0, "Uint", 0)
+        Return DllCall("SetWinEventHook", "Uint", eventMin, "Uint", eventMax, "Uint", 0, "UInt", pCallback, "Uint", PID, "Uint", 0, "Uint", 0)
     }
     ; Internal method. Unhooks a WinEventHook.
     static UnhookWinEvent(hHook) {
