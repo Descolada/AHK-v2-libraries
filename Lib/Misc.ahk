@@ -9,15 +9,15 @@
 	Range(start, stop [, step])		=> Returns an iterable to count from start to stop with step
 	Swap(&a, &b)					=> Swaps the values of a and b
 	Print(value?, func?, newline?) 	=> Prints the formatted value of a variable (number, string, array, map, object)
-	RegExMatchAll(Haystack, NeedleRegEx [, StartingPosition := 1])
-	    Returns all RegExMatch results (RegExMatchInfo objects) for NeedleRegEx in Haystack 
+	RegExMatchAll(haystack, needleRegEx [, startingPosition := 1])
+	    Returns all RegExMatch results (RegExMatchInfo objects) for needleRegEx in haystack 
 		in an array: [RegExMatchInfo1, RegExMatchInfo2, ...]
 	Highlight(x?, y?, w?, h?, showTime:=0, color:="Red", d:=2)
 		Highlights an area with a colorful border.
 	MouseTip(x?, y?, color1:="red", color2:="blue", d:=4)
 		Flashes a colorful highlight at a point for 2 seconds.
 	WindowFromPoint(X, Y) 			=> Returns the window ID at screen coordinates X and Y.
-	ConvertWinPos(X, Y, &OutX, &OutY, RelativeFrom:=A_CoordModeMouse, RelativeTo:="screen", WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+	ConvertWinPos(X, Y, &outX, &outY, relativeFrom:=A_CoordModeMouse, relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?)
 		Converts coordinates between screen, window and client.
 */
 
@@ -155,15 +155,15 @@ Print(value?, func?, newline?) {
 
 /**
  * Returns all RegExMatch results in an array: [RegExMatchInfo1, RegExMatchInfo2, ...]
- * @param Haystack The string whose content is searched.
- * @param NeedleRegEx The RegEx pattern to search for.
- * @param StartingPosition If StartingPos is omitted, it defaults to 1 (the beginning of Haystack).
+ * @param haystack The string whose content is searched.
+ * @param needleRegEx The RegEx pattern to search for.
+ * @param startingPosition If StartingPos is omitted, it defaults to 1 (the beginning of haystack).
  * @returns {Array}
  */
-RegExMatchAll(Haystack, NeedleRegEx, StartingPosition := 1) {
+RegExMatchAll(haystack, needleRegEx, startingPosition := 1) {
 	out := []
-	While StartingPosition := RegExMatch(Haystack, NeedleRegEx, &OutputVar, StartingPosition) {
-		out.Push(OutputVar), StartingPosition += OutputVar[0] ? StrLen(OutputVar[0]) : 1
+	While startingPosition := RegExMatch(haystack, needleRegEx, &outputVar, startingPosition) {
+		out.Push(outputVar), startingPosition += outputVar[0] ? StrLen(outputVar[0]) : 1
 	}
 	return out
 }
@@ -238,52 +238,52 @@ WindowFromPoint(X, Y) { ; by SKAN and Linear Spoon
  * Converts coordinates between screen, window and client.
  * @param X X-coordinate to convert
  * @param Y Y-coordinate to convert
- * @param OutX Variable where to store the converted X-coordinate
- * @param OutY Variable where to store the converted Y-coordinate
- * @param RelativeFrom CoordMode where to convert from. Default is A_CoordModeMouse.
- * @param RelativeTo CoordMode where to convert to. Default is Screen.
- * @param WinTitle A window title or other criteria identifying the target window. 
- * @param WinText If present, this parameter must be a substring from a single text element of the target window.
- * @param ExcludeTitle Windows whose titles include this value will not be considered.
- * @param ExcludeText Windows whose text include this value will not be considered.
+ * @param outX Variable where to store the converted X-coordinate
+ * @param outY Variable where to store the converted Y-coordinate
+ * @param relativeFrom CoordMode where to convert from. Default is A_CoordModeMouse.
+ * @param relativeTo CoordMode where to convert to. Default is Screen.
+ * @param winTitle A window title or other criteria identifying the target window. 
+ * @param winText If present, this parameter must be a substring from a single text element of the target window.
+ * @param excludeTitle Windows whose titles include this value will not be considered.
+ * @param excludeText Windows whose text include this value will not be considered.
  */
-ConvertWinPos(X, Y, &OutX, &OutY, RelativeFrom:="", RelativeTo:="screen", WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-	RelativeFrom := (RelativeFrom == "") ? A_CoordModeMouse : RelativeFrom
-	if RelativeFrom = RelativeTo {
-		OutX := X, OutY := Y
+ConvertWinPos(X, Y, &outX, &outY, relativeFrom:="", relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?) {
+	relativeFrom := (relativeFrom == "") ? A_CoordModeMouse : relativeFrom
+	if relativeFrom = relativeTo {
+		outX := X, outY := Y
 		return
 	}
-	hWnd := WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+	hWnd := WinExist(winTitle?, winText?, excludeTitle?, excludeText?)
 
-	switch RelativeFrom, 0 {
+	switch relativeFrom, 0 {
 		case "screen", "s":
-			if RelativeTo = "window" || RelativeTo = "w" {
+			if relativeTo = "window" || relativeTo = "w" {
 				DllCall("user32\GetWindowRect", "Int", hWnd, "Ptr", RECT := Buffer(16))
-				OutX := X-NumGet(RECT, 0, "Int"), OutY := Y-NumGet(RECT, 4, "Int")
+				outX := X-NumGet(RECT, 0, "Int"), outY := Y-NumGet(RECT, 4, "Int")
 			} else { 
 				; screen to client
 				pt := Buffer(8), NumPut("int",X,pt), NumPut("int",Y,pt,4)
 				DllCall("ScreenToClient", "Int", hWnd, "Ptr", pt)
-				OutX := NumGet(pt,0,"int"), OutY := NumGet(pt,4,"int")
+				outX := NumGet(pt,0,"int"), outY := NumGet(pt,4,"int")
 			}
 		case "window", "w":
 			; window to screen
-			WinGetPos(&OutX, &OutY,,,hWnd)
-			OutX += X, OutY += Y
-			if RelativeTo = "client" || RelativeTo = "c" {
+			WinGetPos(&outX, &outY,,,hWnd)
+			outX += X, outY += Y
+			if relativeTo = "client" || relativeTo = "c" {
 				; screen to client
-				pt := Buffer(8), NumPut("int",OutX,pt), NumPut("int",OutY,pt,4)
+				pt := Buffer(8), NumPut("int",outX,pt), NumPut("int",outY,pt,4)
 				DllCall("ScreenToClient", "Int", hWnd, "Ptr", pt)
-				OutX := NumGet(pt,0,"int"), OutY := NumGet(pt,4,"int")
+				outX := NumGet(pt,0,"int"), outY := NumGet(pt,4,"int")
 			}
 		case "client", "c":
 			; client to screen
 			pt := Buffer(8), NumPut("int",X,pt), NumPut("int",Y,pt,4)
 			DllCall("ClientToScreen", "Int", hWnd, "Ptr", pt)
-			OutX := NumGet(pt,0,"int"), OutY := NumGet(pt,4,"int")
-			if RelativeTo = "window" || RelativeTo = "w" { ; screen to window
+			outX := NumGet(pt,0,"int"), outY := NumGet(pt,4,"int")
+			if relativeTo = "window" || relativeTo = "w" { ; screen to window
 				DllCall("user32\GetWindowRect", "Int", hWnd, "Ptr", RECT := Buffer(16))
-				OutX -= NumGet(RECT, 0, "Int"), OutY -= NumGet(RECT, 4, "Int")
+				outX -= NumGet(RECT, 0, "Int"), outY -= NumGet(RECT, 4, "Int")
 			}
 	}
 }
