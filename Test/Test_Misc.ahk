@@ -46,4 +46,29 @@ class MiscTestSuite {
         DUnit.Equal(Print(RegExMatchAll("a,bb,ccc", "\w+")), "[RegExMatchInfo(0:'a'), RegExMatchInfo(0:'bb'), RegExMatchInfo(0:'ccc')]")
         DUnit.Equal(Print(RegExMatchAll("a,bb,ccc", "\w+",4)), "[RegExMatchInfo(0:'b'), RegExMatchInfo(0:'ccc')]")
     }
+
+    Test_ConvertWinPos() {
+        ccm := A_CoordModeMouse
+        WinExist("A")
+        A_CoordModeMouse := "client"
+        MouseMove(100, 200)
+        MouseGetPos(&clientX, &clientY)
+        A_CoordModeMouse := "screen"
+        MouseGetPos(&screenX, &screenY)
+        A_CoordModeMouse := "window"
+        MouseGetPos(&windowX, &windowY)
+        A_CoordModeMouse := ccm
+        ConvertWinPos(screenX, screenY, &OutX, &OutY, "screen", "client", "A")
+        DUnit.Equal(clientX " " clientY, OutX " " OutY)
+        ConvertWinPos(clientX, clientY, &OutX, &OutY, "client", "screen", "A")
+        DUnit.Equal(screenX " " screenY, OutX " " OutY)
+        ConvertWinPos(windowX, windowY, &OutX, &OutY, "window", "screen", "A")
+        DUnit.Equal(screenX " " screenY, OutX " " OutY)
+        ConvertWinPos(screenX, screenY, &OutX, &OutY, "screen", "window", "A")
+        DUnit.Equal(windowX " " windowY, OutX " " OutY)
+        ConvertWinPos(clientX, clientY, &OutX, &OutY, "client", "window", "A")
+        DUnit.Equal(windowX " " windowY, OutX " " OutY)
+        ConvertWinPos(windowX, windowY, &OutX, &OutY, "window", "client", "A")
+        DUnit.Equal(clientX " " clientY, OutX " " OutY)
+    }
 }
