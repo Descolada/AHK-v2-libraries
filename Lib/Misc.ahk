@@ -9,9 +9,16 @@
 	Range(start, stop [, step])		=> Returns an iterable to count from start to stop with step
 	Swap(&a, &b)					=> Swaps the values of a and b
 	Print(value?, func?, newline?) 	=> Prints the formatted value of a variable (number, string, array, map, object)
-	RegExMatchAll(Haystack, NeedleRegEx, StartingPosition := 1)
+	RegExMatchAll(Haystack, NeedleRegEx [, StartingPosition := 1])
 	    Returns all RegExMatch results (RegExMatchInfo objects) for NeedleRegEx in Haystack 
 		in an array: [RegExMatchInfo1, RegExMatchInfo2, ...]
+	Highlight(x?, y?, w?, h?, showTime:=0, color:="Red", d:=2)
+		Highlights an area with a colorful border.
+	MouseTip(x?, y?, color1:="red", color2:="blue", d:=4)
+		Flashes a colorful highlight at a point for 2 seconds.
+	WindowFromPoint(X, Y) 			=> Returns the window ID at screen coordinates X and Y.
+	ConvertWinPos(X, Y, &OutX, &OutY, RelativeFrom:=A_CoordModeMouse, RelativeTo:="screen", WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+		Converts coordinates between screen, window and client.
 */
 
 /**
@@ -159,4 +166,124 @@ RegExMatchAll(Haystack, NeedleRegEx, StartingPosition := 1) {
 		out.Push(OutputVar), StartingPosition += OutputVar[0] ? StrLen(OutputVar[0]) : 1
 	}
 	return out
+}
+
+/**
+ * Highlights an area with a colorful border.
+ * @param x Screen X-coordinate of the top left corner of the highlight
+ * @param y Screen Y-coordinate of the top left corner of the highlight
+ * @param w Width of the highlight
+ * @param h Height of the highlight
+ * @param showTime Can be one of the following:
+ *     0 - removes the highlighting
+ *     Positive integer (eg 2000) - will highlight and pause for the specified amount of time in ms
+ *     Negative integer - will highlight for the specified amount of time in ms, but script execution will continue
+ * @param color The color of the highlighting. Default is red.
+ * @param d The border thickness of the highlighting in pixels. Default is 2.
+ */
+Highlight(x?, y?, w?, h?, showTime:=0, color:="Red", d:=2) {
+	static guis := []
+	for _, r in guis
+		r.Destroy()
+	guis := []
+	if !IsSet(x)
+		return
+	Loop 4
+		guis.Push(Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +E0x08000000"))
+	Loop 4 {
+		i:=A_Index
+		, x1:=(i=2 ? x+w : x-d)
+		, y1:=(i=3 ? y+h : y-d)
+		, w1:=(i=1 or i=3 ? w+2*d : d)
+		, h1:=(i=2 or i=4 ? h+2*d : d)
+		guis[i].BackColor := color
+		guis[i].Show("NA x" . x1 . " y" . y1 . " w" . w1 . " h" . h1)
+	}
+	if showTime > 0 {
+		Sleep(showTime)
+		Highlight()
+	} else if showTime < 0
+		SetTimer(Highlight, -Abs(showTime))
+}
+
+/**
+ * Flashes a colorful highlight at a point for 2 seconds.
+ * @param x Screen X-coordinate for the highlight
+ *     Omit x or y to highlight the current cursor position.
+ * @param y Screen Y-coordinate for the highlight
+ * @param color1 First color for the highlight. Default is red.
+ * @param color2 Second color for the highlight. Default is blue.
+ * @param d The border thickness of the highlighting in pixels. Default is 2.
+ */
+MouseTip(x?, y?, color1:="red", color2:="blue", d:=4) {
+	If !(IsSet(x) && IsSet(y))
+		MouseGetPos(&x, &y)
+	Loop 2 {
+		Highlight(x-10, y-10, 20, 20, 500, color1, d)
+		Highlight(x-10, y-10, 20, 20, 500, color2, d)
+	}
+	Highlight()
+}
+
+/**
+ * Returns the window ID at screen coordinates X and Y. 
+ * @param X Screen X-coordinate of the point
+ * @param Y Screen Y-coordinate of the point
+ */
+WindowFromPoint(X, Y) { ; by SKAN and Linear Spoon
+	return DllCall("GetAncestor", "UInt", DllCall("user32.dll\WindowFromPoint", "Int64", Y << 32 | X), "UInt", 2)
+}
+
+/**
+ * Converts coordinates between screen, window and client.
+ * @param X X-coordinate to convert
+ * @param Y Y-coordinate to convert
+ * @param OutX Variable where to store the converted X-coordinate
+ * @param OutY Variable where to store the converted Y-coordinate
+ * @param RelativeFrom CoordMode where to convert from. Default is A_CoordModeMouse.
+ * @param RelativeTo CoordMode where to convert to. Default is Screen.
+ * @param WinTitle A window title or other criteria identifying the target window. 
+ * @param WinText If present, this parameter must be a substring from a single text element of the target window.
+ * @param ExcludeTitle Windows whose titles include this value will not be considered.
+ * @param ExcludeText Windows whose text include this value will not be considered.
+ */
+ConvertWinPos(X, Y, &OutX, &OutY, RelativeFrom:="", RelativeTo:="screen", WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+	RelativeFrom := (RelativeFrom == "") ? A_CoordModeMouse : RelativeFrom
+	if RelativeFrom = RelativeTo {
+		OutX := X, OutY := Y
+		return
+	}
+	hWnd := WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+
+	switch RelativeFrom, 0 {
+		case "screen", "s":
+			if RelativeTo = "window" || RelativeTo = "w" {
+				DllCall("user32\GetWindowRect", "Int", hWnd, "Ptr", RECT := Buffer(16))
+				OutX := X-NumGet(RECT, 0, "Int"), OutY := Y-NumGet(RECT, 4, "Int")
+			} else { 
+				; screen to client
+				pt := Buffer(8), NumPut("int",X,pt), NumPut("int",Y,pt,4)
+				DllCall("ScreenToClient", "Int", hWnd, "Ptr", pt)
+				OutX := NumGet(pt,0,"int"), OutY := NumGet(pt,4,"int")
+			}
+		case "window", "w":
+			; window to screen
+			WinGetPos(&OutX, &OutY,,,hWnd)
+			OutX += X, OutY += Y
+			if RelativeTo = "client" || RelativeTo = "c" {
+				; screen to client
+				pt := Buffer(8), NumPut("int",OutX,pt), NumPut("int",OutY,pt,4)
+				DllCall("ScreenToClient", "Int", hWnd, "Ptr", pt)
+				OutX := NumGet(pt,0,"int"), OutY := NumGet(pt,4,"int")
+			}
+		case "client", "c":
+			; client to screen
+			pt := Buffer(8), NumPut("int",X,pt), NumPut("int",Y,pt,4)
+			DllCall("ClientToScreen", "Int", hWnd, "Ptr", pt)
+			OutX := NumGet(pt,0,"int"), OutY := NumGet(pt,4,"int")
+			if RelativeTo = "window" || RelativeTo = "w" { ; screen to window
+				DllCall("user32\GetWindowRect", "Int", hWnd, "Ptr", RECT := Buffer(16))
+				OutX -= NumGet(RECT, 0, "Int"), OutY -= NumGet(RECT, 4, "Int")
+			}
+	}
 }
