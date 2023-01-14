@@ -106,51 +106,57 @@ Print(value?, func?, newline?) {
 	if IsSet(newline)
 		nl := newline
 	if IsSet(value) {
-		val := IsObject(value) ? _Print(value) nl : value nl
+		val := IsObject(value) ? ToString(value) nl : value nl
 		return HasMethod(p) ? p(val) : val
 	}
 	return [p, nl]
+}
 
-	_Print(val?) {
-		if !IsSet(val)
-			return "unset"
-		valType := Type(val)
-		switch valType, 0 {
-			case "String":
-				return "'" val "'"
-			case "Integer", "Float":
-				return val
-			default:
-				self := "", iter := "", out := ""
-				try self := _Print(val.ToString()) ; if the object has ToString available, print it
-				if valType != "Array" { ; enumerate object with key and value pair, except for array
-					try {
-						enum := val.__Enum(2) 
-						while (enum.Call(&val1, &val2))
-							iter .= _Print(val1) ":" _Print(val2?) ", "
-					}
-				}
-				if !IsSet(enum) { ; if enumerating with key and value failed, try again with only value
-					try {
-						enum := val.__Enum(1)
-						while (enum.Call(&enumVal))
-							iter .= _Print(enumVal?) ", "
-					}
-				}
-				if !IsSet(enum) && (valType = "Object") && !self { ; if everything failed, enumerate Object props
-					for k, v in val.OwnProps()
-						iter .= SubStr(_Print(k), 2, -1) ":" _Print(v?) ", "
-				}
-				iter := SubStr(iter, 1, StrLen(iter)-2)
-				if !self && !iter && !((valType = "Array" && val.Length = 0) || (valType = "Map" && val.Count = 0) || (valType = "Object" && ObjOwnPropCount(val) = 0))
-					return valType ; if no additional info is available, only print out the type
-				else if self && iter
-					out .= "value:" self ", iter:[" iter "]"
-				else
-					out .= self iter
-				return (valType = "Object") ? "{" out "}" : (valType = "Array") ? "[" out "]" : valType "(" out ")"
-		}
-	}
+/**
+ * Converts a value (number, array, object) to a string.
+ * Leaving all parameters empty will return the current function and newline in an Array: [func, newline]
+ * @param value Optional: the value to convert. 
+ * @returns {String}
+ */
+ToString(val?) {
+    if !IsSet(val)
+        return "unset"
+    valType := Type(val)
+    switch valType, 0 {
+        case "String":
+            return "'" val "'"
+        case "Integer", "Float":
+            return val
+        default:
+            self := "", iter := "", out := ""
+            try self := ToString(val.ToString()) ; if the object has ToString available, print it
+            if valType != "Array" { ; enumerate object with key and value pair, except for array
+                try {
+                    enum := val.__Enum(2) 
+                    while (enum.Call(&val1, &val2))
+                        iter .= ToString(val1) ":" ToString(val2?) ", "
+                }
+            }
+            if !IsSet(enum) { ; if enumerating with key and value failed, try again with only value
+                try {
+                    enum := val.__Enum(1)
+                    while (enum.Call(&enumVal))
+                        iter .= ToString(enumVal?) ", "
+                }
+            }
+            if !IsSet(enum) && (valType = "Object") && !self { ; if everything failed, enumerate Object props
+                for k, v in val.OwnProps()
+                    iter .= SubStr(ToString(k), 2, -1) ":" ToString(v?) ", "
+            }
+            iter := SubStr(iter, 1, StrLen(iter)-2)
+            if !self && !iter && !((valType = "Array" && val.Length = 0) || (valType = "Map" && val.Count = 0) || (valType = "Object" && ObjOwnPropCount(val) = 0))
+                return valType ; if no additional info is available, only print out the type
+            else if self && iter
+                out .= "value:" self ", iter:[" iter "]"
+            else
+                out .= self iter
+            return (valType = "Object") ? "{" out "}" : (valType = "Array") ? "[" out "]" : valType "(" out ")"
+    }
 }
 
 /**
@@ -332,4 +338,28 @@ GetCaretPos(&X?, &Y?, &W?, &H?) {
     CoordMode "Caret", "Screen"
     CaretGetPos(&X, &Y)
     CoordMode "Caret", savedCaret
+}
+
+/**
+ * Checks whether two rectangles intersect and if they do, then returns an object containing the
+ * rectangle of the intersection: {l:left, t:top, r:right, b:bottom}
+ * Note 1: Overlapping area must be at least 1 unit. 
+ * Note 2: Second rectangle starting at the edge of the first doesn't count as intersecting:
+ *     {l:100, t:100, r:200, b:200} does not intersect {l:200, t:100, 400, 400}
+ * @param l1 x-coordinate of the upper-left corner of the first rectangle
+ * @param t1 y-coordinate of the upper-left corner of the first rectangle
+ * @param r1 x-coordinate of the lower-right corner of the first rectangle
+ * @param b1 y-coordinate of the lower-right corner of the first rectangle
+ * @param l2 x-coordinate of the upper-left corner of the second rectangle
+ * @param t2 y-coordinate of the upper-left corner of the second rectangle
+ * @param r2 x-coordinate of the lower-right corner of the second rectangle
+ * @param b2 y-coordinate of the lower-right corner of the second rectangle
+ * @returns {Object}
+ */
+IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2) {
+	rect1 := Buffer(16), rect2 := Buffer(16), rectOut := Buffer(16)
+	NumPut("int", l1, "int", t1, "int", r1, "int", b1, rect1)
+	NumPut("int", l2, "int", t2, "int", r2, "int", b2, rect2)
+	if DllCall("user32\IntersectRect", "Ptr", rectOut, "Ptr", rect1, "Ptr", rect2)
+		return {l:NumGet(rectOut, 0, "Int"), t:NumGet(rectOut, 4, "Int"), r:NumGet(rectOut, 8, "Int"), b:NumGet(rectOut, 12, "Int")}
 }
