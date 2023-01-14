@@ -207,11 +207,11 @@
             {Name:"Something", not:[{RoleText:"something", mm:"Substring"}, {RoleText:"something else", cs:1}]} => Name must match "something" and RoleText cannot match "something" (with matchmode=Substring == matchmode=2) nor "something else" (casesensitive matching)
             {or:[{Name:"Something"},{Name:"Something else"}], or2:[{Role:20},{Role:42}]}
             {Location:{w:200, h:100, r:"client"}} => Location must match width 200 and height 100 relative to client
-        Dump(scope:=1, depth:=-1)
+        Dump(scope:=1, delimiter:=" ", depth:=-1)
             {Name:{}} => Matches for no defined name (outputted by Dump as N/A)
             Outputs relevant information about the element (Name, Value, Location etc)
             Scope is the search scope (Acc.TreeScope value): Element, Children, Family (Element+Children), Descendants, SubTree (Element+Descendants). Default is Element.
-        DumpAll(depth:=-1)
+        DumpAll(delimiter:=" ", depth:=-1)
             Outputs relevant information about the element and all descendants of the element. This is equivalent to Dump(7)
         Highlight(showTime:=unset, color:="Red", d:=2)
             Highlights the element for a chosen period of time
@@ -275,160 +275,174 @@ class Acc {
     static RegisteredWinEvents := Map()
 
     ; MatchMode constants used in condition objects
-    static MatchMode := {StartsWith:1
-        , Substring:2
-        , Exact:3
-        , RegEx:"Regex"}
+    static MatchMode := {
+        StartsWith:1,
+        Substring:2,
+        Exact:3,
+        RegEx:"Regex"
+    }
 
     ; Used wherever the scope variable is needed (eg Dump, FindElement, FindElements)
-    static TreeScope := {Element:1
-        , Children:2
-        , Family:3
-        , Descendants:4
-        , Subtree:7}
+    static TreeScope := {
+        Element:1,
+        Children:2,
+        Family:3,
+        Descendants:4,
+        Subtree:7
+    }
 
-    Static TreeTraversalOptions := {Default:0
-        , LastToFirst:1
-        , PostOrder:2
+    Static TreeTraversalOptions := {
+        Default:0,
+        LastToFirst:1,
+        PostOrder:2
     }
 
     ;Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373606(V=Vs.85).Aspx
-    Static ObjId := {Window:0x00000000
-        , SysMenu:0xffffffff
-        , TitleBar:0xfffffffe
-        , Menu:0xfffffffd
-        , Client:0xfffffffc
-        , VScroll:0xfffffffb
-        , HScroll:0xfffffffa
-        , SizeGrip:0xfffffff9
-        , Caret:0xfffffff8
-        , Cursor:0xfffffff7
-        , Alert:0xfffffff6
-        , Sound:0xfffffff5
-        , QueryClassNameIdx:0xfffffff4
-        , NativeOM:0xfffffff0}.Defineprop("__Item", This.PropertyValueGetter)
+    Static ObjId := {
+        Window:0x00000000, 
+        SysMenu:0xffffffff, 
+        TitleBar:0xfffffffe, 
+        Menu:0xfffffffd, 
+        Client:0xfffffffc, 
+        VScroll:0xfffffffb, 
+        HScroll:0xfffffffa, 
+        SizeGrip:0xfffffff9, 
+        Caret:0xfffffff8, 
+        Cursor:0xfffffff7, 
+        Alert:0xfffffff6, 
+        Sound:0xfffffff5, 
+        QueryClassNameIdx:0xfffffff4, 
+        NativeOM:0xfffffff0
+    }.Defineprop("__Item", This.PropertyValueGetter)
 
     ;Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373609(V=Vs.85).Aspx
-    Static State := {Normal:0
-        , Unavailable:0x1
-        , Selected:0x2
-        , Focused:0x4
-        , Pressed:0x8
-        , Checked:0x10
-        , Mixed:0x20
-        , Indeterminate:0x20
-        , ReadOnly:0x40
-        , HotTracked:0x80
-        , Default:0x100
-        , Expanded:0x200
-        , Collapsed:0x400
-        , Busy:0x800
-        , Floating:0x1000
-        , Marqueed:0x2000
-        , Animated:0x4000
-        , Invisible:0x8000
-        , Offscreen:0x10000
-        , Sizeable:0x20000
-        , Moveable:0x40000
-        , SelfVoicing:0x80000
-        , Focusable:0x100000
-        , Selectable:0x200000
-        , Linked:0x400000
-        , Traversed:0x800000
-        , MultiSelectable:0x1000000
-        , ExtSelectable:0x2000000
-        , Alert_Low:0x4000000
-        , Alert_Medium:0x8000000
-        , Alert_High:0x10000000
-        , Protected:0x20000000
-        , Valid:0x7fffffff}.Defineprop("__Item", This.PropertyValueGetter)
+    Static State := {
+        Normal:0, 
+        Unavailable:0x1, 
+        Selected:0x2, 
+        Focused:0x4, 
+        Pressed:0x8, 
+        Checked:0x10, 
+        Mixed:0x20, 
+        Indeterminate:0x20, 
+        ReadOnly:0x40, 
+        HotTracked:0x80, 
+        Default:0x100, 
+        Expanded:0x200, 
+        Collapsed:0x400, 
+        Busy:0x800, 
+        Floating:0x1000, 
+        Marqueed:0x2000, 
+        Animated:0x4000, 
+        Invisible:0x8000, 
+        Offscreen:0x10000, 
+        Sizeable:0x20000, 
+        Moveable:0x40000, 
+        SelfVoicing:0x80000, 
+        Focusable:0x100000, 
+        Selectable:0x200000, 
+        Linked:0x400000, 
+        Traversed:0x800000, 
+        MultiSelectable:0x1000000, 
+        ExtSelectable:0x2000000, 
+        Alert_Low:0x4000000, 
+        Alert_Medium:0x8000000, 
+        Alert_High:0x10000000, 
+        Protected:0x20000000, 
+        Valid:0x7fffffff
+    }.Defineprop("__Item", This.PropertyValueGetter)
 
     ;Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373608(V=Vs.85).Aspx
-    Static Role := {TitleBar:0x1
-        , MenuBar:0x2
-        , ScrollBar:0x3
-        , Grip:0x4
-        , Sound:0x5
-        , Cursor:0x6
-        , Caret:0x7
-        , Alert:0x8
-        , Window:0x9
-        , Client:0xa
-        , MenuPopup:0xb
-        , MenuItem:0xc
-        , ToolTip:0xd
-        , Application:0xe
-        , Document:0xf
-        , Pane:0x10
-        , Chart:0x11
-        , Dialog:0x12
-        , Border:0x13
-        , Grouping:0x14
-        , Separator:0x15
-        , Toolbar:0x16
-        , StatusBar:0x17
-        , Table:0x18
-        , ColumnHeader:0x19
-        , RowHeader:0x1a
-        , Column:0x1b
-        , Row:0x1c
-        , Cell:0x1d
-        , Link:0x1e
-        , HelpBalloon:0x1f
-        , Character:0x20
-        , List:0x21
-        , ListItem:0x22
-        , Outline:0x23
-        , OutlineItem:0x24
-        , PageTab:0x25
-        , PropertyPage:0x26
-        , Indicator:0x27
-        , Graphic:0x28
-        , StaticText:0x29
-        , Text:0x2a
-        , PushButton:0x2b
-        , CheckButton:0x2c
-        , RadioButton:0x2d
-        , ComboBox:0x2e
-        , Droplist:0x2f
-        , Progressbar:0x30
-        , Dial:0x31
-        , HotkeyField:0x32
-        , Slider:0x33
-        , SpinButton:0x34
-        , Diagram:0x35
-        , Animation:0x36
-        , Equation:0x37
-        , ButtonDropdown:0x38
-        , ButtonMenu:0x39
-        , ButtonDropdownGrid:0x3a
-        , Whitespace:0x3b
-        , PageTabList:0x3c
-        , Clock:0x3d
-        , SplitButton:0x3e
-        , IPAddress:0x3f
-        , OutlineButton:0x40}.Defineprop("__Item", This.PropertyValueGetter)
-
-    ;Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373600(V=Vs.85).Aspx
-    Static NavDir := {Min:0x0
-        , Up:0x1
-        , Down:0x2
-        , Left:0x3
-        , Right:0x4
-        , Next:0x5
-        , Previous:0x6
-        , FirstChild:0x7
-        , LastChild:0x8
-        , Max:0x9}.Defineprop("__Item", This.PropertyValueGetter)
+    Static Role := {
+        TitleBar:0x1,
+        MenuBar:0x2, 
+        ScrollBar:0x3, 
+        Grip:0x4, 
+        Sound:0x5, 
+        Cursor:0x6, 
+        Caret:0x7, 
+        Alert:0x8, 
+        Window:0x9, 
+        Client:0xa, 
+        MenuPopup:0xb, 
+        MenuItem:0xc, 
+        ToolTip:0xd, 
+        Application:0xe, 
+        Document:0xf, 
+        Pane:0x10, 
+        Chart:0x11, 
+        Dialog:0x12, 
+        Border:0x13, 
+        Grouping:0x14, 
+        Separator:0x15, 
+        Toolbar:0x16, 
+        StatusBar:0x17, 
+        Table:0x18, 
+        ColumnHeader:0x19, 
+        RowHeader:0x1a, 
+        Column:0x1b, 
+        Row:0x1c, 
+        Cell:0x1d, 
+        Link:0x1e, 
+        HelpBalloon:0x1f, 
+        Character:0x20, 
+        List:0x21, 
+        ListItem:0x22, 
+        Outline:0x23, 
+        OutlineItem:0x24, 
+        PageTab:0x25, 
+        PropertyPage:0x26, 
+        Indicator:0x27, 
+        Graphic:0x28, 
+        StaticText:0x29, 
+        Text:0x2a, 
+        PushButton:0x2b, 
+        CheckButton:0x2c, 
+        RadioButton:0x2d, 
+        ComboBox:0x2e, 
+        Droplist:0x2f, 
+        Progressbar:0x30, 
+        Dial:0x31, 
+        HotkeyField:0x32, 
+        Slider:0x33, 
+        SpinButton:0x34, 
+        Diagram:0x35, 
+        Animation:0x36, 
+        Equation:0x37, 
+        ButtonDropdown:0x38, 
+        ButtonMenu:0x39, 
+        ButtonDropdownGrid:0x3a, 
+        Whitespace:0x3b, 
+        PageTabList:0x3c, 
+        Clock:0x3d, 
+        SplitButton:0x3e, 
+        IPAddress:0x3f, 
+        OutlineButton:0x40
+    }.Defineprop("__Item", This.PropertyValueGetter)
+   ;Https://, Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373600(V=Vs.85).Aspx
+    Static NavDir := {
+        Min:0x0, 
+        Up:0x1, 
+        Down:0x2, 
+        Left:0x3, 
+        Right:0x4, 
+        Next:0x5, 
+        Previous:0x6, 
+        FirstChild:0x7, 
+        LastChild:0x8, 
+        Max:0x9
+    }.Defineprop("__Item", This.PropertyValueGetter)
 
     ;Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373634(V=Vs.85).Aspx
-    Static SelectionFlag := {None:0x0
-        , TakeFocus:0x1
-        , TakeSelection:0x2
-        , ExtendSelection:0x4
-        , AddSelection:0x8
-        , RemoveSelection:0x10
-        , Valid:0x1f}.Defineprop("__Item", This.PropertyValueGetter)
+    Static SelectionFlag := {
+        None:0x0, 
+        TakeFocus:0x1, 
+        TakeSelection:0x2, 
+        ExtendSelection:0x4, 
+        AddSelection:0x8, 
+        RemoveSelection:0x10, 
+        Valid:0x1f
+    }.Defineprop("__Item", This.PropertyValueGetter)
 
     ;Msaa Events List:
     ;    Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd318066(V=Vs.85).Aspx
@@ -438,62 +452,66 @@ class Acc {
     ;    Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373657(V=Vs.85).Aspx
     ;Console Accessibility:
     ;    Https://Msdn.Microsoft.Com/En-Us/Library/Ms971319.Aspx
-    Static Event := {Min:0x00000001
-        , Max:0x7fffffff
-        , System_Sound:0x0001
-        , System_Alert:0x0002
-        , System_Foreground:0x0003
-        , System_MenuStart:0x0004
-        , System_MenuEnd:0x0005
-        , System_MenuPopupStart:0x0006
-        , System_MenuPopupEnd:0x0007
-        , System_CaptureStart:0x0008
-        , System_CaptureEnd:0x0009
-        , System_MoveSizeStart:0x000a
-        , System_MoveSizeEnd:0x000b
-        , System_ContextHelpStart:0x000c
-        , System_ContextHelpEnd:0x000d
-        , System_DragDropStart:0x000e
-        , System_DragDropEnd:0x000f
-        , System_DialogStart:0x0010
-        , System_DialogEnd:0x0011
-        , System_ScrollingStart:0x0012
-        , System_ScrollingEnd:0x0013
-        , System_SwitchStart:0x0014
-        , System_SwitchEnd:0x0015
-        , System_MinimizeStart:0x0016
-        , System_MinimizeEnd:0x0017
-        , Console_Caret:0x4001
-        , Console_Update_Region:0x4002
-        , Console_Update_Simple:0x4003
-        , Console_Update_Scroll:0x4004
-        , Console_Layout:0x4005
-        , Console_Start_Application:0x4006
-        , Console_End_Application:0x4007
-        , Object_Create:0x8000
-        , Object_Destroy:0x8001
-        , Object_Show:0x8002
-        , Object_Hide:0x8003
-        , Object_Reorder:0x8004
-        , Object_Focus:0x8005
-        , Object_Selection:0x8006
-        , Object_SelectionAdd:0x8007
-        , Object_SelectionRemove:0x8008
-        , Object_SelectionWithin:0x8009
-        , Object_StateChange:0x800a
-        , Object_LocationChange:0x800b
-        , Object_NameChange:0x800c
-        , Object_DescriptionChange:0x800d
-        , Object_ValueChange:0x800e
-        , Object_ParentChange:0x800f
-        , Object_HelpChange:0x8010
-        , Object_DefactionChange:0x8011
-        , Object_AcceleratorChange:0x8012}.Defineprop("__Item", This.PropertyValueGetter)
+    Static Event := {
+        Min:0x00000001, 
+        Max:0x7fffffff, 
+        System_Sound:0x0001, 
+        System_Alert:0x0002, 
+        System_Foreground:0x0003, 
+        System_MenuStart:0x0004, 
+        System_MenuEnd:0x0005, 
+        System_MenuPopupStart:0x0006, 
+        System_MenuPopupEnd:0x0007, 
+        System_CaptureStart:0x0008, 
+        System_CaptureEnd:0x0009, 
+        System_MoveSizeStart:0x000a, 
+        System_MoveSizeEnd:0x000b, 
+        System_ContextHelpStart:0x000c, 
+        System_ContextHelpEnd:0x000d, 
+        System_DragDropStart:0x000e, 
+        System_DragDropEnd:0x000f, 
+        System_DialogStart:0x0010, 
+        System_DialogEnd:0x0011, 
+        System_ScrollingStart:0x0012, 
+        System_ScrollingEnd:0x0013, 
+        System_SwitchStart:0x0014, 
+        System_SwitchEnd:0x0015, 
+        System_MinimizeStart:0x0016, 
+        System_MinimizeEnd:0x0017, 
+        Console_Caret:0x4001, 
+        Console_Update_Region:0x4002, 
+        Console_Update_Simple:0x4003, 
+        Console_Update_Scroll:0x4004, 
+        Console_Layout:0x4005, 
+        Console_Start_Application:0x4006, 
+        Console_End_Application:0x4007, 
+        Object_Create:0x8000, 
+        Object_Destroy:0x8001, 
+        Object_Show:0x8002, 
+        Object_Hide:0x8003, 
+        Object_Reorder:0x8004, 
+        Object_Focus:0x8005, 
+        Object_Selection:0x8006, 
+        Object_SelectionAdd:0x8007, 
+        Object_SelectionRemove:0x8008, 
+        Object_SelectionWithin:0x8009, 
+        Object_StateChange:0x800a, 
+        Object_LocationChange:0x800b, 
+        Object_NameChange:0x800c, 
+        Object_DescriptionChange:0x800d, 
+        Object_ValueChange:0x800e, 
+        Object_ParentChange:0x800f, 
+        Object_HelpChange:0x8010, 
+        Object_DefactionChange:0x8011, 
+        Object_AcceleratorChange:0x8012
+    }.Defineprop("__Item", This.PropertyValueGetter)
     
-    Static WinEvent := {OutOfContext:0
-        , SkipOwnThread:1
-        , SkipOwnProcess:2
-        , InContext:3}.Defineprop("__Item", This.PropertyValueGetter)
+    Static WinEvent := {
+        OutOfContext:0, 
+        SkipOwnThread:1, 
+        SkipOwnProcess:2, 
+        InContext:3
+    }.Defineprop("__Item", This.PropertyValueGetter)
     
     static __HighlightGuis := Map()
 
@@ -1115,22 +1133,23 @@ class Acc {
         /**
          * Outputs relevant information about the element
          * @param scope The search scope: Element, Children, Family (Element+Children), Descendants, SubTree (Element+Descendants). Default is Element.
+         * @param delimiter The delimiter separating the outputted properties
          * @param depth Maximum number of levels to dump. Default is no limit.
          * @returns {String}
          */
-        Dump(scope:=1, depth:=-1) {
-            out := "", scope := IsInteger(scope) ? scope : Acc.TreeSCOPE.%scope%
+        Dump(scope:=1, delimiter:=" ", depth:=-1) {
+            out := "", scope := IsInteger(scope) ? scope : Acc.TreeScope.%scope%
             if scope&1 {
                 RoleText := "N/A", Role := "N/A", Value := "N/A", Name := "N/A", StateText := "N/A", State := "N/A", DefaultAction := "N/A", Description := "N/A", KeyboardShortcut := "N/A", Help := "N/A", Location := {x:"N/A",y:"N/A",w:"N/A",h:"N/A"}
                 for _, v in ["RoleText", "Role", "Value", "Name", "StateText", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help", "Location"]
                     try %v% := this.%v%
-                out := "RoleText: " RoleText " Role: " Role " [Location: {x:" Location.x ",y:" Location.y ",w:" Location.w ",h:" Location.h "}]" " [Name: " Name "] [Value: " Value  "]" (StateText ? " [StateText: " StateText "]" : "") (State ? " [State: " State "]" : "") (DefaultAction ? " [DefaultAction: " DefaultAction "]" : "") (Description ? " [Description: " Description "]" : "") (KeyboardShortcut ? " [KeyboardShortcut: " KeyboardShortcut "]" : "") (Help ? " [Help: " Help "]" : "") (this.childId ? " ChildId: " this.childId : "") "`n"
+                out := "RoleText: " RoleText delimiter "Role: " Role delimiter "[Location: {x:" Location.x ",y:" Location.y ",w:" Location.w ",h:" Location.h "}]" delimiter "[Name: " Name "]" delimiter "[Value: " Value  "]" (StateText ? delimiter "[StateText: " StateText "]" : "") (State ? delimiter "[State: " State "]" : "") (DefaultAction ? delimiter "[DefaultAction: " DefaultAction "]" : "") (Description ? delimiter "[Description: " Description "]" : "") (KeyboardShortcut ? delimiter "[KeyboardShortcut: " KeyboardShortcut "]" : "") (Help ? delimiter "[Help: " Help "]" : "") (this.childId ? delimiter "ChildId: " this.childId : "") "`n"
             }
             if scope&4
                 return Trim(RecurseTree(this, out,, depth), "`n")
             if scope&2 {
                 for n, oChild in this.Children
-                    out .= n ": " oChild.Dump() "`n"
+                    out .= n ":" delimiter oChild.Dump() "`n"
             }
             return Trim(out, "`n")
 
@@ -1147,7 +1166,7 @@ class Acc {
                     return tree
                 
                 For i, oChild in oAcc.Children {
-                    tree .= path (path?",":"") i ": " oChild.Dump() "`n"
+                    tree .= path (path?",":"") i ":" delimiter oChild.Dump() "`n"
                     tree := RecurseTree(oChild, tree, path (path?",":"") i, depth)
                 }
                 return tree
@@ -1155,10 +1174,11 @@ class Acc {
         }
         /**
          * Outputs relevant information about the element and all its descendants.
+         * @param delimiter The delimiter separating the outputted properties
          * @param depth Maximum number of levels to dump. Default is no limit.
          * @returns {String}
          */
-        DumpAll(depth:=-1) => this.Dump(5, depth)
+        DumpAll(delimiter:=" ", depth:=-1) => this.Dump(5, delimiter, depth)
         ; Same as Dump()
         ToString() => this.Dump()
 
@@ -1469,20 +1489,24 @@ class Acc {
     /**
      * Registers an event to the provided callback function.
      * Returns an event handler object, that once destroyed will unhook the event.
+     * @param callback The callback function with two mandatory arguments: CallbackFunction(oAcc, EventInfo)
      * @param eventMin One of the Acc.Event constants
      * @param eventMax Optional: one of the Acc.Event constants, which if provided will register 
      *     a range of events from eventMin to eventMax
-     * @param callback The callback function with two mandatory arguments: CallbackFunction(oAcc, EventInfo)
      * @param PID Optional: Process ID from which to register events. Default is all processes.
      * @returns {Object}
      */
-    static RegisterWinEvent(eventMin, eventMax, callback:=0, PID:=0) {
-        if !IsNumber(eventMin)
+    static RegisterWinEvent(callback, eventMin, eventMax?, PID:=0) {
+        if HasMethod(eventMin) ; Legacy support: if eventMin is a method, then the arguments are: event, callback, PID
+            PID := eventMax ?? PID, eventMax := callback, callback := eventMin, eventMin := eventMax
+        if IsSet(eventMax) && HasMethod(eventMax) ; Legacy support: if eventMax is a method, then the arguments are: eventMin, eventMax, callback, PID
+            callbackBuf := eventMax, eventMax := eventMin, eventMin := callback, callback := callbackBuf
+        if !IsSet(eventMax)
+            eventMax := eventMin
+        if Type(eventMin) = "String"
             try eventMin := Acc.Event.%eventMin%
         if Type(eventMax) = "String"
             try eventMax := Acc.Event.%eventMax%
-        if !IsNumber(eventMax)
-            PID := callback, callback := eventMax, eventMax := eventMin
         pCallback := CallbackCreate(this.GetMethod("HandleWinEvent").Bind(this, callback), "F", 7)
         hook := Acc.SetWinEventHook(eventMin, eventMax, pCallback, PID)
         return {__Hook:hook, __Callback:pCallback, __Delete:{ call: (*) => (this.UnhookWinEvent(hook), CallbackFree(pCallback)) }}
@@ -1587,9 +1611,7 @@ class Acc {
         LV_CopyText(GuiCtrlObj, Info, *) {
             LVData := Info > GuiCtrlObj.GetCount()
                 ? ListViewGetContent("", GuiCtrlObj)
-                : GuiCtrlObj.GetCount("Selected") > 1
-                ? ListViewGetContent("Selected", GuiCtrlObj)
-                : GuiCtrlObj.GetText(Info,2)
+                : ListViewGetContent("Selected", GuiCtrlObj)
             ToolTip("Copied: " (A_Clipboard := RegExReplace(LVData, "([ \w]+)\t", "$1: ")))
             SetTimer((*) => ToolTip(), -3000)
         }
