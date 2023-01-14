@@ -70,6 +70,7 @@
                     WinID - handle of the window that sent the event 
                     ControlID - handle of the control that sent the event, which depending on the
                         window will be the window itself or a control
+                    ObjId - the object Id (Acc.ObjId) the event was called with
             PID is the Process ID of the process/window the events will be registered from. By default
                 events from all windows are registered.
             Unhooking of the event handler will happen once the returned object is destroyed
@@ -1471,7 +1472,7 @@ class Acc {
      * @param eventMin One of the Acc.Event constants
      * @param eventMax Optional: one of the Acc.Event constants, which if provided will register 
      *     a range of events from eventMin to eventMax
-     * @param callback The callback function with three mandatory arguments: CallbackFunction(oAcc, Event, EventTime)
+     * @param callback The callback function with two mandatory arguments: CallbackFunction(oAcc, EventInfo)
      * @param PID Optional: Process ID from which to register events. Default is all processes.
      * @returns {Object}
      */
@@ -1489,7 +1490,7 @@ class Acc {
     ; Internal method. Calls the callback function after wrapping the IAccessible native object
     static HandleWinEvent(fCallback, hWinEventHook, Event, hWnd, idObject, idChild, dwEventThread, dwmsEventTime) {
         Critical
-        try return fCallback(oAcc := Acc.ObjectFromEvent(hWnd, idObject, idChild), {Event:Event, EventThread:dwEventThread, EventTime:dwmsEventTime&0x7FFFFFFF, ControlID:hWnd, WinID:oAcc.wId})
+        try return fCallback(oAcc := Acc.ObjectFromEvent(hWnd, idObject, idChild), {Event:Event, EventThread:dwEventThread, EventTime:dwmsEventTime&0x7FFFFFFF, ControlID:hWnd, WinID:oAcc.wId, ObjId:idObject})
     }
     ; Internal method. Hooks a range of events to a callback function.
     static SetWinEventHook(eventMin, eventMax, pCallback, PID:=0) {
