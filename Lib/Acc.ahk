@@ -40,7 +40,7 @@
     Acc methods:
         ElementFromPoint(x:=unset, y:=unset, activateChromium := True)
             Gets an Acc element from screen coordinates X and Y (NOT relative to the active window).
-        ElementFromHandle(hWnd:="", idObject := 0, activateChromium := True)
+        ElementFromHandle(hWnd:="", idObject := "Window", activateChromium := True)
             Gets an Acc element from a WinTitle, by default the Last Found Window. 
             Additionally idObject can be specified from Acc.ObjId constants (eg to get the Caret location).
         ElementFromChromium(hWnd:="", activateChromium := True)
@@ -1298,7 +1298,9 @@ class Acc {
      * @param activateChromium Whether to turn on accessibility for Chromium-based windows. Default is True.
      * @returns {Acc.IAccessible}
      */
-    static ElementFromHandle(hWnd:="", idObject := 0, activateChromium:=True) {
+    static ElementFromHandle(hWnd:="", idObject := "Window", activateChromium:=True) {
+        if !IsInteger(idObject)
+            try idObject := Acc.ObjId.%idObject%
         if !IsInteger(hWnd)
             hWnd := WinExist(hWnd)
         if !hWnd
