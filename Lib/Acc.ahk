@@ -161,7 +161,7 @@
                 it must be inside an object ("and" condition), for example with key "or":
                     FindElement({or:[{Name:"Something"}, {Name:"Something else"}], index:2})
             Order: defines the order of tree traversal (Acc.TreeTraversalOptions value): 
-                Default, LastToFirst, PostOrder. Default is FirstToLast and PreOrder.
+                Default, PostOrder, LastToFirst. Default is FirstToLast and PreOrder.
         FindElements(condition:=True, scope:=4, depth:=-1)
             Returns an array of elements matching the condition (see description under ValidateCondition)
             The returned elements also have the "Path" property with the found elements path
@@ -293,8 +293,9 @@ class Acc {
 
     Static TreeTraversalOptions := {
         Default:0,
-        LastToFirst:1,
-        PostOrder:2
+        PostOrder:1,
+        LastToFirst:2,
+        PostOrderLastToFirst:3
     }
 
     ;Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373606(V=Vs.85).Aspx
@@ -884,19 +885,19 @@ class Acc {
                 if condition.HasOwnProp("i")
                     index := condition.i
                 if index < 0
-                    order |= 1, index := -index
+                    order |= 2, index := -index
                 else if index = 0
                     throw Error("Condition index cannot be 0", -1)
             }
             scope := IsInteger(scope) ? scope : Acc.TreeScope.%scope%, order := IsInteger(order) ? order : Acc.TreeTraversalOptions.%order%
 
-            if order&2
-                return order&1 ? PostOrderLastToFirstRecursiveFind(this, condition, scope,, ++depth) : PostOrderFirstToLastRecursiveFind(this, condition, scope,, ++depth)
+            if order&1
+                return order&2 ? PostOrderLastToFirstRecursiveFind(this, condition, scope,, ++depth) : PostOrderFirstToLastRecursiveFind(this, condition, scope,, ++depth)
             if scope&1
                 if this.ValidateCondition(condition) && (--index = 0)
                     return this.DefineProp("Path", {value:""})
             if scope>1
-                return order&1 ? PreOrderLastToFirstRecursiveFind(this, condition, scope,, depth) : PreOrderFirstToLastRecursiveFind(this, condition, scope,,depth)
+                return order&2 ? PreOrderLastToFirstRecursiveFind(this, condition, scope,, depth) : PreOrderFirstToLastRecursiveFind(this, condition, scope,,depth)
 
             PreOrderFirstToLastRecursiveFind(element, condition, scope:=4, path:="", depth:=-1) {
                 --depth
@@ -984,7 +985,7 @@ class Acc {
          * @param timeOut Timeout in milliseconds. Default in indefinite waiting.
          * @param scope The search scope (Acc.TreeScope value): Element, Children, Family (Element+Children), Descendants, SubTree (Element+Descendants). Default is Descendants.
          * @param index Looks for the n-th element matching the condition
-         * @param order The order of tree traversal (Acc.TreeTraversalOptions value): Default, LastToFirst, PostOrder. Default is FirstToLast and PreOrder.
+         * @param order The order of tree traversal (Acc.TreeTraversalOptions value): Default, PostOrder, LastToFirst. Default is FirstToLast and PreOrder.
          * @param depth Maximum level of depth for the search. Default is no limit.
          * @returns {Acc.IAccessible}
          */

@@ -54,6 +54,7 @@ class AccTestSuite {
         DUnit.Equal(this.oAcc.GetPath(this.oAcc[4,2,4,3]), "4,2,4,3")
         Run "chrome.exe --incognito autohotkey.com"
         WinWaitActive("ahk_exe chrome.exe")
+        Sleep 500
         oChrome := Acc.ElementFromHandle("ahk_exe chrome.exe") 
         DUnit.Equal(oChrome.GetPath(oEl := oChrome.WaitElementExist("4,1,1,2,2,2,2,1,1,1,1,1")), "4,1,1,2,2,2,2,1,1,1,1,1")
         docEl := oEl.Normalize({RoleText:"document", not:{Value:""}})
@@ -95,7 +96,7 @@ class AccTestSuite {
         DUnit.Equal(this.oAcc.FindElement({or:[{Name:"Save	Ctrl+S"}, {Name:"Save As...	Ctrl+Shift+S"}], index:-1}).Dump(), "RoleText: menu item Role: 12 [Location: {x:0,y:0,w:0,h:0}] [Name: Save As...	Ctrl+Shift+S] [Value: ] [StateText: normal] [DefaultAction: Execute] [Description: N/A] [KeyboardShortcut: a] ChildId: 5")
         DUnit.Equal(this.oAcc.FindElement({IsEqual:oEdit}).Dump(), "RoleText: editable text Role: 42 [Location: {x:11,y:75,w:1482,h:754}] [Name: Text Editor] [Value: ] [StateText: focusable] [State: 1048580]")
         DUnit.Equal(this.oAcc.FindElement({Location:{w:1482,h:754}}).Dump(), "RoleText: editable text Role: 42 [Location: {x:11,y:75,w:1482,h:754}] [Name: Text Editor] [Value: ] [StateText: focusable] [State: 1048580]")
-        DUnit.Equal(this.oAcc.FindElement([{Role:9}, {Role:10}], 3,,2).Dump(), "RoleText: client Role: 10 [Location: {x:11,y:75,w:1508,h:790}] [Name: Untitled - Notepad] [Value: ] [StateText: focusable] [State: 1048576]")
+        DUnit.Equal(this.oAcc.FindElement([{Role:9}, {Role:10}], 3,,1).Dump(), "RoleText: client Role: 10 [Location: {x:11,y:75,w:1508,h:790}] [Name: Untitled - Notepad] [Value: ] [StateText: focusable] [State: 1048576]")
         DUnit.Equal(this.oAcc.FindElement({Role:9}, 2,,2), "")
         DUnit.Equal(this.oAcc.FindElements([{Role:11}, {Role:12}],, 2).Length, 12)
         DUnit.False(this.oAcc.FindElement([{Role:9}, {Role:12}],,,,1))
