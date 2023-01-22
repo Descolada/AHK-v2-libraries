@@ -76,9 +76,14 @@ class StringTestSuite {
     }
     Test_RegExMatch() {
         DUnit.Equal("abc".RegexMatch("b")[], "b")
+        DUnit.Equal("abc".RegexMatchAll("b")[1][], "b")
+        DUnit.Equal("abc".RegexMatchAll("b").Length, 1)
+        DUnit.Equal("abc".RegexMatchAll("b|c").Length, 2)
     }
     Test_RegExReplace() {
         DUnit.Equal("abc".RegexReplace("b"), "ac")
+        DUnit.Equal("abc".RegexReplace(["b"]), "ac")
+        DUnit.Equal("abc".RegexReplace(["a", "(c)"], ["", "$1$1"]), "bcc")
     }
     Test_SplitPath() {
         DUnit.Equal("C:\My Documents\Address List.txt".SplitPath(), {FileName: "Address List.txt", Dir: "C:\My Documents", Ext: "txt", NameNoExt: "Address List", Drive: "C:"})

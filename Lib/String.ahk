@@ -31,6 +31,7 @@
 	|       .Find(Needle [, CaseSense, StartingPos, Occurrence])                 |
 	|       .SplitPath() => returns object {FileName, Dir, Ext, NameNoExt, Drive}|                                                       |
 	|		.RegExMatch(needleRegex, &match?, startingPos?)                      |
+	|       .RegExMatchAll(needleRegex, startingPos?)                            |
 	|		.RegExReplace(needle, replacement?, &count?, limit?, startingPos?)   |
 	|                                                                            |
 	| String[n] => gets nth character                                            |
@@ -114,17 +115,43 @@ Class String2 {
 	 * @returns {Object}
 	 */
 	static RegExMatch(needleRegex, &match?, startingPos?) => (RegExMatch(this, needleRegex, &match, startingPos?), match)
+	/**
+	* Returns all RegExMatch results in an array: [RegExMatchInfo1, RegExMatchInfo2, ...]
+	* @param needleRegEx *String* The RegEx pattern to search for.
+	* @param startingPosition *Integer* If StartingPos is omitted, it defaults to 1 (the beginning of haystack).
+	* @returns {Array}
+	*/
+	static RegExMatchAll(needleRegEx, startingPosition := 1) {
+		out := []
+		While startingPosition := RegExMatch(this, needleRegEx, &outputVar, startingPosition)
+			out.Push(outputVar), startingPosition += outputVar[0] ? StrLen(outputVar[0]) : 1
+		return out
+	}
 	 /**
 	  * Uses regex to perform a replacement, returns the changed string
-	  * @param needleRegex *String* What pattern to match
+	  * @param needleRegex *String* What pattern to match.
+	  * 	This can also be a Array of needles (and replacement a corresponding array of replacement values), 
+	  * 	in which case all of the pairs will be searched for and replaced with the corresponding replacement. 
+	  * 	replacement should be left empty, outputVarCount will be set to the total number of replacements, limit is the maximum
+	  * 	number of replacements for each needle-replacement pair.
 	  * @param replacement *String* What to replace that match into
-	  * @param outputVarCount *Varref* Specify a variable with a `&` before it to assign it to the amount of replacements that have occured
+	  * @param outputVarCount *VarRef* Specify a variable with a `&` before it to assign it to the amount of replacements that have occured
 	  * @param limit *Integer* The maximum amount of replacements that can happen. Unlimited by default
 	  * @param startingPos *Integer* Specify a number to start matching at. By default, starts matching at the beginning of the string
 	  * @returns {String} The changed string
 	  */
-	static RegExReplace(needleRegex, replacement?, &outputVarCount?, limit?, startingPos?) => RegExReplace(this, needleRegex, replacement?, &outputVarCount?, limit?, startingPos?)
-
+	static RegExReplace(needleRegex, replacement?, &outputVarCount?, limit?, startingPos?) {
+		if IsObject(needleRegex) {
+			out := this, count := 0
+			for i, needle in needleRegex {
+				out := RegExReplace(out, needle, IsSet(replacement) ? replacement[i] : unset, &count, limit?, startingPos?)
+				if IsSet(outputVarCount)
+					outputVarCount += count
+			}
+			return out
+		}
+		return RegExReplace(this, needleRegex, replacement?, &outputVarCount?, limit?, startingPos?)
+	}
 	/**
 	 * Add character(s) to left side of the input string.
 	 * example: "aaa".LPad("+", 5)
