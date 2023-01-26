@@ -1299,7 +1299,7 @@ class Acc {
         if !(IsSet(x) && IsSet(y))
             DllCall("GetCursorPos", "int64P", &pt64:=0), x := 0xFFFFFFFF & pt64, y := pt64 >> 32
         else
-            pt64 := y << 32 | x
+            pt64 := y << 32 | (x & 0xFFFFFFFF)
         wId := DllCall("GetAncestor", "UInt", DllCall("user32.dll\WindowFromPoint", "int64",  pt64), "UInt", 2) ; hwnd from point by SKAN. 2 = GA_ROOT
         if activateChromium
             Acc.ActivateChromiumAccessibility(wId)
@@ -1532,7 +1532,7 @@ class Acc {
      * @param Y Screen Y-coordinate
      */
 	static WindowFromPoint(X, Y) { ; by SKAN and Linear Spoon
-		return DllCall("GetAncestor", "UInt", DllCall("user32.dll\WindowFromPoint", "Int64", Y << 32 | X), "UInt", 2)
+		return DllCall("GetAncestor", "UInt", DllCall("user32.dll\WindowFromPoint", "Int64", Y << 32 | (X & 0xFFFFFFFF)), "UInt", 2)
 	}
     /**
      * Removes all highlights created by Element.Highlight()
