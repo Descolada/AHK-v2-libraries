@@ -1,6 +1,6 @@
 ﻿/*
 	Name: String.ahk
-	Version 0.13 (15.10.22)
+	Version 0.14 (01.03.2023)
 	Created: 27.08.22
 	Author: Descolada
 	Credit:
@@ -36,6 +36,7 @@
 	|                                                                            |
 	| String[n] => gets nth character                                            |
 	| String[i,j] => substring from i to j                                       |
+	| for [index,] char in String => loops over the characters in String         |
 	| String.Length                                                              |
 	| String.Count(searchFor)                                                    |
 	| String.Insert(insert, into [, pos])                                        |
