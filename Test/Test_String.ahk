@@ -16,6 +16,20 @@ class StringTestSuite {
         DUnit.Equal("12ab45"[-1,-3], "54b")
         DUnit.Equal("12ab45"[1,1], "1")
     }
+    Test___Enum() {
+        res := ""
+        for c in "abcd"
+            res .= c " "
+        DUnit.Equal(res, "a b c d ")
+        res := ""
+        for i, c in "abcd"
+            res .= i ":" c " "
+        DUnit.Equal(res, "1:a 2:b 3:c 4:d ")
+        res := ""
+        for c in ""
+            res .= c " "
+        DUnit.Equal(res, "")
+    }
     Test_Length() {
         DUnit.Equal("".Length, 0)
         DUnit.Equal("abc".Length, 3)
@@ -177,5 +191,11 @@ class StringTestSuite {
         DUnit.Equal("".Right(), "")
         DUnit.Equal("aaa`na`naaaaaaaa".Right(), "     aaa`n       a`naaaaaaaa")
         DUnit.Equal("aaa`na`naaaaaaa".Right(), "    aaa`n      a`naaaaaaa")
+    }
+    Test_Is() {
+        DUnit.True("abc".IsAlnum)
+        DUnit.True("abc1".IsAlnum)
+        DUnit.False("abc.".IsAlnum)
+        DUnit.True("0".IsDigit)
     }
 }

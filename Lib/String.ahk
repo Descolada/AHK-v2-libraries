@@ -60,20 +60,15 @@
 	| String.Right([fill:=" ", delim:="`n", exclude:="`r"])                      |
 	'-==========================================================================-'
 */
-
 Class String2 {
 	static __New() {
 		; Add String2 methods and properties into String object
 		__ObjDefineProp := Object.Prototype.DefineProp
-		for __String2_Prop in String2.OwnProps() {
-			if !(__String2_Prop ~= "__Init|__Item|Prototype|Length") {
-				if HasMethod(String2, __String2_Prop)
-					__ObjDefineProp(String.Prototype, __String2_Prop, {call:String2.%__String2_Prop%})
-			}
-		}
+		for __String2_Prop in String2.OwnProps()
+			if SubStr(__String2_Prop, 1, 2) != "__"
+				__ObjDefineProp(String.Prototype, __String2_Prop, String2.GetOwnPropDesc(__String2_Prop))
 		__ObjDefineProp(String.Prototype, "__Item", {get:(args*)=>String2.__Item[args*]})
-		__ObjDefineProp(String.Prototype, "Length", {get:(arg)=>String2.Length(arg)})
-		__ObjDefineProp(String.Prototype, "WLength", {get:(arg)=>String2.WLength(arg)})
+		__ObjDefineProp(String.Prototype, "__Enum", {call:String2.__Enum})
 	}
 
 	static __Item[args*] {
@@ -93,9 +88,36 @@ Class String2 {
 			}
 		}
 	}
+
+	static __Enum(varCount) {
+		pos := 1, counter := 0, chars := StrSplit(this, ""), maxPos := chars.Length
+		EnumElements(&char) {
+			if pos > maxPos
+				return 0
+			char := chars[pos], pos++
+			return 1
+		}
+		
+		EnumIndexAndElements(&index, &char) {
+			if pos > maxPos
+				return 0
+			char := chars[pos], index := pos++
+			return 1
+		}
+
+		return varCount = 1 ? EnumElements : EnumIndexAndElements
+	}
 	; Native functions implemented as methods for the String object
-	static Length(str)    => StrLen(str)
-	static WLength(str)   => (RegExReplace(str, "s).", "", &i), i)
+	static Length    	  => StrLen(this)
+	static WLength        => (RegExReplace(this, "s).", "", &i), i)
+	static IsDigit		  => IsDigit(this)
+	static IsXDigit		  => IsXDigit(this)
+	static IsAlpha		  => IsAlpha(this)
+	static IsUpper		  => IsUpper(this)
+	static IsLower		  => IsLower(this)
+	static IsAlnum		  => IsAlnum(this)
+	static IsSpace		  => IsSpace(this)
+	static IsTime		  => IsTime(this)
 	static ToUpper()      => StrUpper(this)
 	static ToLower()      => StrLower(this)
 	static ToTitle()      => StrTitle(this)
@@ -107,7 +129,7 @@ Class String2 {
 	static Compare(args*) => StrCompare(this, args*)
 	static Sort(args*)    => Sort(this, args*)
 	static Find(args*)    => InStr(this, args*)
-	static SplitPath() => (SplitPath(this, &a1, &a2, &a3, &a4, &a5), {FileName: a1, Dir: a2, Ext: a3, NameNoExt: a4, Drive: a5})
+	static SplitPath() 	  => (SplitPath(this, &a1, &a2, &a3, &a4, &a5), {FileName: a1, Dir: a2, Ext: a3, NameNoExt: a4, Drive: a5})
 	/**
 	 * Returns the match object
 	 * @param needleRegex *String* What pattern to match
