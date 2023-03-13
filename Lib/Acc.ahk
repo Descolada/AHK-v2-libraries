@@ -504,7 +504,26 @@ class Acc {
         Object_ParentChange:0x800f, 
         Object_HelpChange:0x8010, 
         Object_DefactionChange:0x8011, 
-        Object_AcceleratorChange:0x8012
+        Object_AcceleratorChange:0x8012,
+        Object_Invoked:0x8013,
+        Object_TextSelectionChanged:0x8014,
+        Object_ContentScrolled:0x8015,
+        System_ArrangmentPreview:0x8016,
+        Object_Cloaked:0x8017,
+        Object_Uncloaked:0x8018,
+        Object_LiveRegionChanged:0x8019,
+        Object_HostedObjectsInvalidated:0x8020,
+        Object_DragStart:0x8021,
+        Object_DragCancel:0x8022,
+        Object_DragComplete:0x8023,
+        Object_DragEnter:0x8024,
+        Object_DragLeave:0x8025,
+        Object_DragDropped:0x8026,
+        Object_IME_Show:0x8027,
+        Object_IME_Hide:0x8028,
+        Object_IME_Change:0x8029,
+        Object_TextEdit_ConversionTargetChanged:0x8030,
+        Object_End:0x80FF
     }.Defineprop("__Item", This.PropertyValueGetter)
     
     Static WinEvent := {
