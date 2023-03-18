@@ -35,6 +35,10 @@ class StringTestSuite {
         DUnit.Equal("abc".Length, 3)
         DUnit.Equal("💩abc".Length, 5)
         DUnit.Equal("💩abc".WLength, 4)
+        DUnit.Equal("💩abc".ULength, 4)
+        DUnit.Equal("👨‍👩‍👧‍👦".ULength, 1)
+        DUnit.Equal("Z͑ͫ̓ͪ̂ͫ̽͏̴̙̤̞͉͚̯̞̠͍A̴̵̜̰͔ͫ͗͢L̠ͨͧͩ͘G̴̻͈͍͔̹̑͗̎̅͛́Ǫ̵̹̻̝̳͂̌̌͘!͖̬̰̙̗̿̋ͥͥ̂ͣ̐́́͜͞".ULength, 6)
+        ;DUnit.Equal("👨‍👩‍👧‍👦".WLength, 1)
     }
 
     Test_ToUpper() {
@@ -160,6 +164,8 @@ class StringTestSuite {
     Test_InsertLine() {
         DUnit.Equal("aaa|ccc|ddd".InsertLine("bbb", 2, "|"), "aaa|bbb|ccc|ddd")
         DUnit.Equal("aaa`n`rbbb`n`rccc".InsertLine("ddd", 0), "aaa`nbbb`nccc`nddd")
+        DUnit.Equal("aaa|bbb|ccc".InsertLine("ddd", -1, "|"), "aaa|bbb|ddd|ccc")
+        DUnit.Equal("aaa|ccc|ddd".InsertLine("bbb", 5, "|"), "aaa|ccc|ddd||bbb")
     }
     Test_DeleteLine() {
         DUnit.Throws(String2.DeleteLine.Bind("abc", 0, "a"), "ValueError")

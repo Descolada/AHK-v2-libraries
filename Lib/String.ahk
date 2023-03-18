@@ -91,19 +91,15 @@ Class String2 {
 	}
 
 	static __Enum(varCount) {
-		pos := 1, counter := 0, chars := StrSplit(this, ""), maxPos := chars.Length
+		pos := 0, len := StrLen(this)
 		EnumElements(&char) {
-			if pos > maxPos
-				return 0
-			char := chars[pos], pos++
-			return 1
+			char := StrGet(StrPtr(this) + 2*pos, 1)
+			return ++pos <= len
 		}
 		
 		EnumIndexAndElements(&index, &char) {
-			if pos > maxPos
-				return 0
-			char := chars[pos], index := pos++
-			return 1
+			char := StrGet(StrPtr(this) + 2*pos, 1), index := ++pos
+			return pos <= len
 		}
 
 		return varCount = 1 ? EnumElements : EnumIndexAndElements
@@ -111,6 +107,7 @@ Class String2 {
 	; Native functions implemented as methods for the String object
 	static Length    	  => StrLen(this)
 	static WLength        => (RegExReplace(this, "s).", "", &i), i)
+	static ULength        => StrLen(RegExReplace(this, "s)((?>\P{M}(\p{M}|\x{200D}))+\P{M})|\X", "_"))
 	static IsDigit		  => IsDigit(this)
 	static IsXDigit		  => IsXDigit(this)
 	static IsAlpha		  => IsAlpha(this)
@@ -409,11 +406,13 @@ Class String2 {
 	* output: "aaa|bbb|ccc|ddd"
 	* @param insert Text you want to insert.
 	* @param line What line number to insert at. Use a 0 or negative to start inserting from the end.
-	* @param delim The string which defines a "line".
+	* @param delim The character which defines a "line".
 	* @param exclude The text you want to ignore when defining a line.
 	* @returns {String}
 	 */
 	static InsertLine(insert, line, delim:="`n", exclude:="`r") {
+		if StrLen(delim) != 1
+			throw ValueError("InsertLine: Delimiter can only be a single character", -1)
 		into := this, new := ""
 		count := into.Count(delim)+1
 
@@ -435,7 +434,7 @@ Class String2 {
 		Loop parse, into, delim, exclude
 			new.=((a_index==line) ? insert . delim . A_LoopField . delim : A_LoopField . delim)
 
-		return RTrim(new, delim)
+		return SubStr(new, 1, -(line > count ? 2 : 1))
 	}
 
 	/**
@@ -447,11 +446,13 @@ Class String2 {
 	 * output: "aaa|bbb|ccc"
 	 * @param string Text you want to delete the line from.
 	 * @param line What line to delete. You may use -1 for the last line and a negative an offset from the last. -2 would be the second to the last.
-	 * @param delim The string which defines a "line".
+	 * @param delim The character which defines a "line".
 	 * @param exclude The text you want to ignore when defining a line.
 	 * @returns {String}
 	 */
 	static DeleteLine(line, delim:="`n", exclude:="`r") {
+		if StrLen(delim) != 1
+			throw ValueError("DeleteLine: Delimiter can only be a single character", -1)
 		new := ""
 		; checks to see if we are trying to delete a non-existing line.
 		count:=this.Count(delim)+1
@@ -469,7 +470,7 @@ Class String2 {
 				(new .= A_LoopField . delim)
 		}
 
-		return SubStr(new,1,-StrLen(delim))
+		return SubStr(new,1,-1)
 	}
 
 	/**
@@ -479,7 +480,7 @@ Class String2 {
 	 * input: "aaa|bbb|ccc|ddd|eee|fff".ReadLine(4, "|")
 	 * output: "ddd"
 	 * @param line What line to read*. "L" = The last line. "R" = A random line. Otherwise specify a number to get that line. You may specify a negative number to get the line starting from the end. -1 is the same as "L", the last. -2 would be the second to the last, and so on.
-	 * @param delim The string which defines a "line".
+	 * @param delim The character which defines a "line".
 	 * @param exclude The text you want to ignore when defining a line.
 	 * @returns {String}
 	 */
@@ -535,7 +536,7 @@ Class String2 {
 	 * @param text The text you would like to center.
 	 * @param fill A single character to use as the padding to center text.
 	 * @param symFill 0: Just fill in the left half. 1: Fill in both sides.
-	 * @param delim The string which defines a "line".
+	 * @param delim The character which defines a "line".
 	 * @param exclude The text you want to ignore when defining a line.
 	 * @param width Can be specified to add extra padding to the sides
 	 * @returns {String}
@@ -564,7 +565,7 @@ Class String2 {
 	 *                 a
 	 *          aaaaaaaa"
 	 * @param fill A single character to use as to push the text to the right.
-	 * @param delim The string which defines a "line".
+	 * @param delim The character which defines a "line".
 	 * @param exclude The text you want to ignore when defining a line.
 	 * @returns {String}
 	 */
