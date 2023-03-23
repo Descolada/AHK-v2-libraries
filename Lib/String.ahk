@@ -28,6 +28,7 @@
 	|       .RTrim([OmitChars])                                                  |
 	|       .Compare(comparison [, CaseSense])                                   |
 	|       .Sort([, Options, Function])                                         |
+	|       .Format([Values...])                                                 |
 	|       .Find(Needle [, CaseSense, StartingPos, Occurrence])                 |
 	|       .SplitPath() => returns object {FileName, Dir, Ext, NameNoExt, Drive}|                                                       |
 	|		.RegExMatch(needleRegex, &match?, startingPos?)                      |
@@ -126,6 +127,7 @@ Class String2 {
 	static RTrim(args*)   => RTrim(this, args*)
 	static Compare(args*) => StrCompare(this, args*)
 	static Sort(args*)    => Sort(this, args*)
+	static Format(args*)  => Format(this, args*)
 	static Find(args*)    => InStr(this, args*)
 	static SplitPath() 	  => (SplitPath(this, &a1, &a2, &a3, &a4, &a5), {FileName: a1, Dir: a2, Ext: a3, NameNoExt: a4, Drive: a5})
 	/**

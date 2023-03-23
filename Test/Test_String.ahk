@@ -82,6 +82,13 @@ class StringTestSuite {
         DUnit.Equal("Abc".Compare("abc", 1), -1)
         DUnit.Equal("A10".Compare("A2", "Logical"), 1)
     }
+    Test_Format() {
+        DUnit.Equal("{2}, {1}!".Format("World", "Hello"), "Hello, World!")
+        DUnit.Equal("{:-10}".Format("Left"), "Left      ")
+        DUnit.Equal("{:10}".Format("Right"), "     Right")
+        DUnit.Equal("{1:#x} {2:X} 0x{3:x}".Format(3735928559, 195948557, 0), "0xdeadbeef BADF00D 0x0")
+        DUnit.Equal("{1:0.3f} {1:.10f}".Format(3.141592654), "3.142 3.1415926540")
+    }
     Test_Sort() {
         DUnit.Equal("".Sort(), "")
         DUnit.Equal("5,3,7,9,1,13,999,-4".Sort("N D,"), "-4,1,3,5,7,9,13,999")
@@ -203,5 +210,10 @@ class StringTestSuite {
         DUnit.True("abc1".IsAlnum)
         DUnit.False("abc.".IsAlnum)
         DUnit.True("0".IsDigit)
+    }
+    Test_Concat() {
+        DUnit.Equal("|".Concat("111", "222", "333"), "111|222|333")
+        DUnit.Equal("d".Concat("ddd", "ddd"), "ddddddd")
+        DUnit.Equal("<br>".Concat("break", "br"), "break<br>br")
     }
 }
