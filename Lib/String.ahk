@@ -1,6 +1,6 @@
 ﻿/*
 	Name: String.ahk
-	Version 0.14 (01.03.2023)
+	Version 0.14 (23.03.2023)
 	Created: 27.08.22
 	Author: Descolada
 	Credit:
@@ -15,6 +15,18 @@
 	These methods cannot be used as stand-alone. To do that, you must add another argument
 	'string' to the function and replace all occurrences of 'this' with 'string'.
 	.-==========================================================================-.
+	| Properties                                                                 |
+	|============================================================================|
+	| String.Length                                                              |
+	|       .IsDigit                                                             |
+	|       .IsXDigit                                                            |
+	|       .IsAlpha                                                             |
+	|       .IsUpper                                                             |
+	|       .IsLower                                                             |
+	|       .IsAlnum                                                             |
+	|       .IsSpace                                                             |
+	|       .IsTime                                                              |
+	|============================================================================|
 	| Methods                                                                    |
 	|============================================================================|
 	| Native functions as methods:                                               |
