@@ -21,6 +21,13 @@ class ArrayTestSuite {
         DUnit.Equal([1,2,3,4,5].Map((a,b) => a+b, [0,1,3,5,7]), [1,3,6,9,12])
         DUnit.Equal([1,,3,4].Map((a:=0,b:=0) => a+b, [0,1,3,,7]), [1,1,6,4])
     }
+    Test_ForEach() {
+        DUnit.Equal([].ForEach(ForEachCallback), [])
+        DUnit.Equal([1,2,3].ForEach(ForEachCallback), [2,3,4])
+        ForEachCallback(val, index, arr) {
+            arr[index] := val+1
+        }
+    }
     Test_Filter() {
         DUnit.Equal([].Filter(IsInteger), [])
         DUnit.Equal([1,'two','three',4,5].Filter(IsInteger), [1,4,5])
@@ -56,14 +63,29 @@ class ArrayTestSuite {
     Test_Sort() {
         DUnit.Equal([].Sort(), [])
         DUnit.Equal([1].Sort(), [1])
-        DUnit.Equal(["a", 2, 1.2, 1.22, 1.20].Sort(), [1.2, 1.2, 1.22, 2, 'a'])
+        DUnit.Equal([4,1,3,2].Sort(), [1,2,3,4])
+        DUnit.Throws(ObjBindMethod(["a",1,3,2], "Sort")) ; Only numeric values by default
+        DUnit.Equal(["a", 2, 1.2, 1.22, 1.20].Sort("C"), [1.2, 1.2, 1.22, 2, 'a'])
+        DUnit.Equal(["c", "b", "a", "C", "F", "A"].Sort("C"), ['A', 'C', 'F', 'a', 'b', 'c'])
+        arr := [1,2,3,4,5]
+        firstProbabilities := [0,0,0,0,0], lastProbabilities := [0,0,0,0,0]
+        Loop 1000 {
+            arr.Sort("Random")
+            firstProbabilities[arr[1]] += 1
+            lastProbabilities[arr[arr.length]] += 1
+        }
+        for v in firstProbabilities
+            DUnit.Assert(v > 150, "Sort Random might not be random, try running again")
+        for v in lastProbabilities
+            DUnit.Assert(v > 150, "Sort Random might not be random, try running again")
+
         myImmovables:=[]
         myImmovables.push({town: "New York", size: "60", price: 400000, balcony: 1})
         myImmovables.push({town: "Berlin", size: "45", price: 230000, balcony: 1})
         myImmovables.push({town: "Moscow", size: "80", price: 350000, balcony: 0})
         myImmovables.push({town: "Tokyo", size: "90", price: 600000, balcony: 2})
         myImmovables.push({town: "Palma de Mallorca", size: "250", price: 1100000, balcony: 3})
-        DUnit.Equal(myImmovables.Sort("size", "N R"), [{balcony:3, price:1100000, size:'250', town:'Palma de Mallorca'}, {balcony:2, price:600000, size:'90', town:'Tokyo'}, {balcony:0, price:350000, size:'80', town:'Moscow'}, {balcony:1, price:400000, size:'60', town:'New York'}, {balcony:1, price:230000, size:'45', town:'Berlin'}])
+        DUnit.Equal(myImmovables.Sort("N R", "size"), [{balcony:3, price:1100000, size:'250', town:'Palma de Mallorca'}, {balcony:2, price:600000, size:'90', town:'Tokyo'}, {balcony:0, price:350000, size:'80', town:'Moscow'}, {balcony:1, price:400000, size:'60', town:'New York'}, {balcony:1, price:230000, size:'45', town:'Berlin'}])
     }
     Test_Shuffle() {
         DUnit.Equal([].Shuffle(), [])

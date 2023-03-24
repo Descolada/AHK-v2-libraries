@@ -12,6 +12,7 @@
         optionally skipping elements with 'step'.
     Array.Swap(a, b)                        => Swaps elements at indexes a and b.
     Array.Map(func, arrays*)                => Applies a function to each element in the array.
+    Array.ForEach(func)                     => Calls a function for each element in the array.
     Array.Filter(func)                      => Keeps only values that satisfy the provided function
     Array.Reduce(func, initialValue?)       => Applies a function cumulatively to all the values in 
         the array, with an optional initial value.
@@ -20,7 +21,7 @@
         match will be set to the found value. 
     Array.Reverse()                         => Reverses the array.
     Array.Count(value)                      => Counts the number of occurrences of a value.
-    Array.Sort(Key?, Options?, Callback?)   => Sorts an array, optionally by object values.
+    Array.Sort(OptionsOrCallback?, Key?)    => Sorts an array, optionally by object values.
     Array.Shuffle()                         => Randomizes the array.
     Array.Join(delim:=",")                  => Joins all the elements to a string using the provided delimiter.
     Array.Flat()                            => Turns a nested array into a one-level array.
@@ -72,7 +73,7 @@ class Array2 {
         return this
     }
     /**
-     * Applies a function to each element in the array
+     * Applies a function to each element in the array (mutates the array).
      * @param func The mapping function that accepts one argument.
      * @param arrays Additional arrays to be accepted in the mapping function
      * @returns {Array}
@@ -87,6 +88,18 @@ class Array2 {
             try bf := bf()
             this[i] := bf
         }
+        return this
+    }
+    /**
+     * Applies a function to each element in the array.
+     * @param func The callback function with arguments Callback(value[, index, array]).
+     * @returns {Array}
+     */
+    static ForEach(func) {
+        if !HasMethod(func)
+            throw ValueError("ForEach: func must be a function", -1)
+        for i, v in this
+            func(v, i, this)
         return this
     }
     /**
@@ -191,31 +204,61 @@ class Array2 {
         return count
     }
     /**
-     * Sorts an array, optionally by object values
-     * Only use this if the speed of sorting isn't particularly important.
+     * Sorts an array, optionally by object keys
+     * @param OptionsOrCallback Optional: either a callback function, or one of the following:
+     * 
+     *     N => array is considered to consist of only numeric values. This is the default option.
+     *     C, C1 or COn => case-sensitive sort of strings
+     *     C0 or COff => case-insensitive sort of strings
+     * 
+     *     The callback function should accept two parameters elem1 and elem2 and return an integer:
+     *     Return integer < 0 if elem1 less than elem2
+     *     Return 0 is elem1 is equal to elem2
+     *     Return > 0 if elem1 greater than elem2
      * @param Key Optional: Omit it if you want to sort a array of primitive values (strings, numbers etc).
      *     If you have an array of objects, specify here the key by which contents the object will be sorted.
-     * @param Options Optional: same as native Sort function options.
-     * @param Callback Optional: Use it if you want to have custom sort rules. As the native Sort function, it should accept two parameters.
      * @returns {Array}
-     * @author Descolada, bichlepa
      */
-    static Sort(Key?, Options?, Callback?) {
-        temp := {}, toSort := ""
-		for _, v in this {
-            value := IsSet(Key) ? v.%Key% : v
-            if !temp.HasOwnProp(value)
-                temp.%value% := [v]
-            else
-                temp.%value%.Push(v)
-			toSort .= value "`n"
+    static Sort(optionsOrCallback:="N", key?) {
+        static sizeofFieldType := A_PtrSize * 2
+        if HasMethod(optionsOrCallback)
+            pCallback := CallbackCreate(CustomCompare.Bind(optionsOrCallback), "F", 2), optionsOrCallback := ""
+        else {
+            if InStr(optionsOrCallback, "N")
+                pCallback := CallbackCreate(IsSet(key) ? NumericCompareKey.Bind(key) : NumericCompare, "F", 2)
+            if RegExMatch(optionsOrCallback, "i)C(?!0)|C1|COn")
+                pCallback := CallbackCreate(IsSet(key) ? StringCompareKey.Bind(key,,True) : StringCompare.Bind(,,True), "F", 2)
+            if RegExMatch(optionsOrCallback, "i)C0|COff")
+                pCallback := CallbackCreate(IsSet(key) ? StringCompareKey.Bind(key) : StringCompare, "F", 2)
+            if InStr(optionsOrCallback, "Random")
+                pCallback := CallbackCreate(RandomCompare, "F", 2)
         }
-		toSort := SubStr(toSort,1,-1), sorted := Sort(toSort, Options?, Callback?)
-        Loop Parse sorted, "`n"
-        {
-            this[A_Index] := temp.%A_LoopField%.RemoveAt(1)
-        }
+        mFields := NumGet(ObjPtr(this) + (4 * A_PtrSize), "Ptr") ; 0 is VTable. 2 is mBase, 4 is FlatVector, 5 is mLength and 6 is mCapacity
+        DllCall("msvcrt.dll\qsort", "Ptr", mFields, "Int", this.Length, "Int", sizeofFieldType, "Ptr", pCallback)
+        CallbackFree(pCallback)
+        if RegExMatch(optionsOrCallback, "i)R(?!a)")
+            this.Reverse()
+        if InStr(optionsOrCallback, "U")
+            this := this.Unique()
         return this
+
+        CustomCompare(compareFunc, pFieldType1, pFieldType2) => (ValueFromFieldType(pFieldType1, &fieldValue1), ValueFromFieldType(pFieldType2, &fieldValue2), compareFunc(fieldValue1, fieldValue2))
+        NumericCompare(pFieldType1, pFieldType2) => (ValueFromFieldType(pFieldType1, &fieldValue1), ValueFromFieldType(pFieldType2, &fieldValue2), fieldValue1 - fieldValue2)
+        NumericCompareKey(key, pFieldType1, pFieldType2) => (ValueFromFieldType(pFieldType1, &fieldValue1), ValueFromFieldType(pFieldType2, &fieldValue2), fieldValue1.%key% - fieldValue2.%key%)
+        StringCompare(pFieldType1, pFieldType2, casesense := False) => (ValueFromFieldType(pFieldType1, &fieldValue1), ValueFromFieldType(pFieldType2, &fieldValue2), StrCompare(fieldValue1, fieldValue2, casesense))
+        StringCompareKey(key, pFieldType1, pFieldType2, casesense := False) => (ValueFromFieldType(pFieldType1, &fieldValue1), ValueFromFieldType(pFieldType2, &fieldValue2), StrCompare(fieldValue1.%key%, fieldValue2.%key%, casesense))
+        RandomCompare(pFieldType1, pFieldType2) => (Random(0, 1) ? 1 : -1)
+
+        ValueFromFieldType(pFieldType, &fieldValue?) {
+            static SYM_STRING := 0, PURE_INTEGER := 1, PURE_FLOAT := 2, SYM_MISSING := 3, SYM_OBJECT := 5
+            switch SymbolType := NumGet(pFieldType + A_PtrSize, "Int") {
+                case PURE_INTEGER: fieldValue := NumGet(pFieldType, "Int64") 
+                case PURE_FLOAT: fieldValue := NumGet(pFieldType, "Double") 
+                case SYM_STRING: fieldValue := StrGet(NumGet(pFieldType, "Ptr")+2*A_PtrSize)
+                case SYM_OBJECT: fieldValue := ObjFromPtrAddRef(NumGet(pFieldType, "Ptr")) 
+                case SYM_MISSING: return		
+            }
+        }
     }
     /**
      * Randomizes the array. Slightly faster than Array.Sort(,"Random N")
@@ -226,6 +269,15 @@ class Array2 {
         Loop len-1
             this.Swap(A_index, Random(A_index, len))
         return this
+    }
+    /**
+     * 
+     */
+    static Unique() {
+        unique := Map()
+        for v in this
+            unique[v] := 1
+        return [unique*]
     }
     /**
      * Joins all the elements to a string using the provided delimiter.
