@@ -1,9 +1,8 @@
 ﻿/*
 	Name: Array.ahk
-	Version 0.2 (13.10.22)
+	Version 0.3 (24.03.23)
 	Created: 27.08.22
 	Author: Descolada
-	Credit: bichlepa (Sort method)
 
 	Description:
 	A compilation of useful array methods.
