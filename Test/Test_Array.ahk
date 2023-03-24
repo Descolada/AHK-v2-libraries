@@ -64,7 +64,9 @@ class ArrayTestSuite {
         DUnit.Equal([].Sort(), [])
         DUnit.Equal([1].Sort(), [1])
         DUnit.Equal([4,1,3,2].Sort(), [1,2,3,4])
+        DUnit.Equal([4,1,3,2].Sort("COn"), [1, 2, 3, 4])
         DUnit.Throws(ObjBindMethod(["a",1,3,2], "Sort")) ; Only numeric values by default
+        DUnit.Throws(ObjBindMethod(["a",1,3,2], "Sort", "X")) ; Invalid option
         DUnit.Equal(["a", 2, 1.2, 1.22, 1.20].Sort("C"), [1.2, 1.2, 1.22, 2, 'a'])
         DUnit.Equal(["c", "b", "a", "C", "F", "A"].Sort("C"), ['A', 'C', 'F', 'a', 'b', 'c'])
         arr := [1,2,3,4,5]
