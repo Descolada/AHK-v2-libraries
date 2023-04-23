@@ -189,13 +189,16 @@ RegExMatchAll(haystack, needleRegEx, startingPosition := 1) {
  */
 Highlight(x?, y?, w?, h?, showTime:=0, color:="Red", d:=2) {
 	static guis := []
-	for _, r in guis
-		r.Destroy()
-	guis := []
-	if !IsSet(x)
+	if !IsSet(x) {
+        for _, r in guis
+            r.Destroy()
+        guis := []
 		return
-	Loop 4
-		guis.Push(Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +E0x08000000"))
+    }
+    if !guis.Length {
+        Loop 4
+            guis.Push(Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +E0x08000000"))
+    }
 	Loop 4 {
 		i:=A_Index
 		, x1:=(i=2 ? x+w : x-d)
