@@ -219,23 +219,23 @@ class Array2 {
      * @returns {Array}
      */
     static Sort(optionsOrCallback:="N", key?) {
-        static sizeofFieldType := A_PtrSize * 2
+        static sizeofFieldType := 16 ; Same on both 32-bit and 64-bit
         if HasMethod(optionsOrCallback)
-            pCallback := CallbackCreate(CustomCompare.Bind(optionsOrCallback), "F", 2), optionsOrCallback := ""
+            pCallback := CallbackCreate(CustomCompare.Bind(optionsOrCallback), "F Cdecl", 2), optionsOrCallback := ""
         else {
             if InStr(optionsOrCallback, "N")
-                pCallback := CallbackCreate(IsSet(key) ? NumericCompareKey.Bind(key) : NumericCompare, "F", 2)
+                pCallback := CallbackCreate(IsSet(key) ? NumericCompareKey.Bind(key) : NumericCompare, "F CDecl", 2)
             if RegExMatch(optionsOrCallback, "i)C(?!0)|C1|COn")
-                pCallback := CallbackCreate(IsSet(key) ? StringCompareKey.Bind(key,,True) : StringCompare.Bind(,,True), "F", 2)
+                pCallback := CallbackCreate(IsSet(key) ? StringCompareKey.Bind(key,,True) : StringCompare.Bind(,,True), "F CDecl", 2)
             if RegExMatch(optionsOrCallback, "i)C0|COff")
-                pCallback := CallbackCreate(IsSet(key) ? StringCompareKey.Bind(key) : StringCompare, "F", 2)
+                pCallback := CallbackCreate(IsSet(key) ? StringCompareKey.Bind(key) : StringCompare, "F CDecl", 2)
             if InStr(optionsOrCallback, "Random")
-                pCallback := CallbackCreate(RandomCompare, "F", 2)
+                pCallback := CallbackCreate(RandomCompare, "F CDecl", 2)
             if !IsSet(pCallback)
                 throw ValueError("No valid options provided!", -1)
         }
-        mFields := NumGet(ObjPtr(this) + (4 * A_PtrSize), "Ptr") ; 0 is VTable. 2 is mBase, 4 is FlatVector, 5 is mLength and 6 is mCapacity
-        DllCall("msvcrt.dll\qsort", "Ptr", mFields, "Int", this.Length, "Int", sizeofFieldType, "Ptr", pCallback)
+        mFields := NumGet(ObjPtr(this) + (8 + 3*A_PtrSize), "Ptr") ; 0 is VTable. 2 is mBase, 4 is FlatVector, 5 is mLength and 6 is mCapacity
+        DllCall("msvcrt.dll\qsort", "Ptr", mFields, "UInt", this.Length, "UInt", sizeofFieldType, "Ptr", pCallback, "Cdecl")
         CallbackFree(pCallback)
         if RegExMatch(optionsOrCallback, "i)R(?!a)")
             this.Reverse()
@@ -252,7 +252,7 @@ class Array2 {
 
         ValueFromFieldType(pFieldType, &fieldValue?) {
             static SYM_STRING := 0, PURE_INTEGER := 1, PURE_FLOAT := 2, SYM_MISSING := 3, SYM_OBJECT := 5
-            switch SymbolType := NumGet(pFieldType + A_PtrSize, "Int") {
+            switch SymbolType := NumGet(pFieldType + 8, "Int") {
                 case PURE_INTEGER: fieldValue := NumGet(pFieldType, "Int64") 
                 case PURE_FLOAT: fieldValue := NumGet(pFieldType, "Double") 
                 case SYM_STRING: fieldValue := StrGet(NumGet(pFieldType, "Ptr")+2*A_PtrSize)
