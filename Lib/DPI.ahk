@@ -32,6 +32,29 @@ MouseMoveDpi(X, Y, Speed?, Relative?) {
     , MouseMove(X, Y, Speed?, Relative?)
 }
 
+MouseClickDpi(WhichButton?, X?, Y?, ClickCount?, Speed?, DownOrUp?, Relative?) {
+    DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
+    , MouseClick(WhichButton?, X?, Y?, ClickCount?, Speed?, DownOrUp?, Relative?)
+}
+
+MouseClickDragDpi(WhichButton?, X1?, Y1?, X2?, Y2?, Speed?, Relative?) {
+    DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
+    , MouseClickDrag(WhichButton?, X1?, Y1?, X2?, Y2?, Speed?, Relative?)
+}
+
+ClickDpi(Options*) {
+    if Options.Length > 1 && IsInteger(Options[2]) { ; Click(x, y)
+        DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X:=Options[1], &Y:=Options[2])
+        , Options[1]:=X, Options[2]:=Y
+    } else { ; Click("x y")
+        if RegExMatch(Options[1], "i)\s*(\d+)\s+(\d+)", &regOut:="") {
+            DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X:=regOut[1], &Y:=regOut[2])
+            Options[1] := RegExReplace(Options[1], "i)(\d+)\s+(\d+)", X " " Y)
+        }
+    }
+    Click(Options*)
+}
+
 ; Useful if window is moved to another screen after getting the position and size
 WinGetPosDpi(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     WinGetPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
@@ -71,9 +94,10 @@ ControlGetPosDpi(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, W
 
 ControlClickDpi(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount?, Options?, ExcludeTitle?, ExcludeText?) {
     if IsSet(ControlOrPos) && ControlOrPos is String {
-        if RegExMatch(ControlOrPos, "i)x\s*(\d+)\s+y\s*(\d+)", &regOut:="")
+        if RegExMatch(ControlOrPos, "i)x\s*(\d+)\s+y\s*(\d+)", &regOut:="") {
             DpiFromStandard(WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &x := Integer(regOut[1]), &y := Integer(regOut[2]))
             ControlOrPos := "X" x " Y" y
+        }
     }
     ControlClick(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount?, Options?, ExcludeTitle?, ExcludeText?)
 }
