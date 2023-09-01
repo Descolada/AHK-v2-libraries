@@ -24,11 +24,14 @@
     DPI.ahk constants:
     A_StandardDpi := 96 means than by default the conversion is to DPI 96, but this global variable can be changed to a higher value (eg 960 for 1000% scaling). 
         This may be desired if pixel-perfect accuracy is needed.
+    A_MaximumPerMonitorDpiAwarenessContext contains either -3 or -4 depending on Windows version
+    A_DefaultDpiAwarenessContext determines the default DPI awareness which will be set after each Dpi function call, by default it's A_MaximumPerMonitorDpiAwarenessContext
+    
 
     DPI.ahk functions:
     WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)     =>  Gets the DPI for the specified window
-    SetMaximumDPIAwareness()                                        =>  Sets script to per-monitor awareness instead of system-aware (which is the DPI of the primary monitor)
-    SetScriptAwarenessContext(context)                              =>  Sets DPI awareness of the running script to a new context
+    SetThreadDpiAwarenessContext(context)                           =>  Sets DPI awareness of the running script thread to a new context
+    SetProcessDpiAwarenessContext(context)                          =>  Sets DPI awareness of the running process to a new context
     ConvertDpi(&coord, from, to)                                    =>  Converts a coordinate from DPI from to DPI to
     DpiFromStandard(dpi, &x, &y)                                    =>  Converts a point (x,y) from DPI A_StandardDpi to the new DPI
     DpiToStandard(dpi, &x, &y)                                      =>  Converts a point (x,y) from dpi to A_StandardDpi
@@ -42,9 +45,9 @@
         Setting DPI awareness for script process and monitoring WM_DPICHANGED message doesn't change that. Source: https://www.autohotkey.com/boards/viewtopic.php?p=310542#p310542
 */
 
-global A_StandardDpi := 96, WM_DPICHANGED := 0x02E0
+global A_StandardDpi := 96, WM_DPICHANGED := 0x02E0, A_MaximumPerMonitorDpiAwarenessContext := VerCompare(A_OSVersion, ">=10.0.15063") ? -4 : -3, A_DefaultDpiAwarenessContext := A_MaximumPerMonitorDpiAwarenessContext
 ;SetMaximumDPIAwareness(1) ; Also set the process DPI awareness?
-SetMaximumDPIAwareness() ; Set DPI awareness of our script to maximum available by default
+SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext) ; Set DPI awareness of our script to maximum available per-monitor by default
 
 ; Gets the DPI for the specified window
 WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
@@ -57,32 +60,36 @@ WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
         return DllCall("GetDpiForWindow", "ptr", hWnd, "uint")
     ; Otherwise report the monitor DPI the window is currently located in
     */
-    hMonitor := DllCall("MonitorFromWindow", "ptr", WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "int", 2, "ptr") ; MONITOR_DEFAULTTONEAREST
-    DllCall("Shcore.dll\GetDpiForMonitor", "ptr", hMonitor, "int", 0, "uint*", &dpiX:=0, "uint*", &dpiY:=0)
-    return dpiX
+    return (hMonitor := DllCall("MonitorFromWindow", "ptr", WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "int", 2, "ptr") ; MONITOR_DEFAULTTONEAREST
+    , DllCall("Shcore.dll\GetDpiForMonitor", "ptr", hMonitor, "int", 0, "uint*", &dpiX:=0, "uint*", &dpiY:=0), dpiX)
 }
 
 MouseGetPosDpi(&OutputVarX?, &OutputVarY?, &OutputVarWin?, &OutputVarControl?, Flag?) {
-    MouseGetPos(&OutputVarX?, &OutputVarY?, &OutputVarWin?, &OutputVarControl?, Flag?)
-    DpiToStandardExceptCoordModeScreen(A_CoordModeMouse, &OutputVarX, &OutputVarY)
+    SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext)
+    , MouseGetPos(&OutputVarX?, &OutputVarY?, &OutputVarWin?, &OutputVarControl?, Flag?)
+    , DpiToStandardExceptCoordModeScreen(A_CoordModeMouse, &OutputVarX, &OutputVarY)
 }
 
 MouseMoveDpi(X, Y, Speed?, Relative?) {
-    DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
     , MouseMove(X, Y, Speed?, Relative?)
 }
 
 MouseClickDpi(WhichButton?, X?, Y?, ClickCount?, Speed?, DownOrUp?, Relative?) {
-    DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
     , MouseClick(WhichButton?, X?, Y?, ClickCount?, Speed?, DownOrUp?, Relative?)
 }
 
 MouseClickDragDpi(WhichButton?, X1?, Y1?, X2?, Y2?, Speed?, Relative?) {
-    DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
     , MouseClickDrag(WhichButton?, X1?, Y1?, X2?, Y2?, Speed?, Relative?)
 }
 
 ClickDpi(Options*) {
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
     if Options.Length > 1 && IsInteger(Options[2]) { ; Click(x, y)
         DpiFromStandardExceptCoordModeScreen(A_CoordModeMouse, &X:=Options[1], &Y:=Options[2])
         , Options[1]:=X, Options[2]:=Y
@@ -97,23 +104,27 @@ ClickDpi(Options*) {
 
 ; Useful if window is moved to another screen after getting the position and size
 WinGetPosDpi(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    WinGetPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , WinGetPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
     , DpiToStandard(WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &Width, &Height)
 }
 
 ; Useful if window is moved to another screen after getting the position and size
 WinGetClientPosDpi(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    WinGetClientPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , WinGetClientPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
     , DpiToStandard(WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &Width, &Height)
 }
 
 PixelGetColorDpi(X, Y, Mode := '') {
-    DpiFromStandardExceptCoordModeScreen(A_CoordModePixel, &X, &Y)
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , DpiFromStandardExceptCoordModeScreen(A_CoordModePixel, &X, &Y)
     return PixelGetColor(X, Y, Mode)
 }
 
 PixelSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?) {
-    out := PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?)
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , out := PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?)
     if out
         DpiToStandardExceptCoordModeScreen(A_CoordModePixel, &OutputVarX, &OutputVarY)
     return out
@@ -140,7 +151,7 @@ PixelSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?) {
  */
 ImageSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, imgDpi?, &imgW?, &imgH?) {
     static oGdip := InitGdip()
-
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
     if !IsSet(dpi)
         dpi := (A_CoordModePixel = "screen") ? A_ScreenDPI : WinGetDpi("A")
 
@@ -184,12 +195,14 @@ ImageSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, imgDpi
 }
 
 ControlGetPosDpi(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    ControlGetPos(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , ControlGetPos(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
     , DpiToStandard(dpi := WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &OutX, &OutY)
     , DpiToStandard(dpi, &OutWidth, &OutHeight)
 }
 
 ControlClickDpi(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount?, Options?, ExcludeTitle?, ExcludeText?) {
+    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
     if IsSet(ControlOrPos) && ControlOrPos is String {
         if RegExMatch(ControlOrPos, "i)x\s*(\d+)\s+y\s*(\d+)", &regOut:="") {
             DpiFromStandard(WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &x := Integer(regOut[1]), &y := Integer(regOut[2]))
@@ -215,9 +228,6 @@ ConvertDpi(&coord, from, to) => (coord := IsNumber(coord) ? DllCall("MulDiv", "i
 DpiFromStandard(dpi, &x, &y) => (x := IsNumber(x) ? DllCall("MulDiv", "int", x, "int", dpi, "int", A_StandardDpi, "int") : x, y := IsNumber(y) ? DllCall("MulDiv", "int", y, "int", dpi, "int", A_StandardDpi, "int") : y)
 DpiToStandard(dpi, &x, &y) => (x := IsNumber(x) ? DllCall("MulDiv", "int", x, "int", A_StandardDpi, "int", dpi, "int") : x, y := IsNumber(y) ? DllCall("MulDiv", "int", y, "int", A_StandardDpi, "int", dpi, "int") : y)
 
-; Sets script to per-monitor awareness instead of system-aware (which is the DPI of the primary monitor)
-SetMaximumDPIAwareness(process:=0) => SetScriptAwarenessContext(VerCompare(A_OSVersion, ">=10.0.15063") ? -4 : -3, process)
-
 /**
  * Returns one of the following:
  * DPI_AWARENESS_INVALID = -1,
@@ -241,10 +251,10 @@ GetScriptDpiAwareness() {
  *  -4: Per Monitor v2. An advancement over the original per-monitor DPI awareness mode, which enables applications 
  *      to access new DPI-related scaling behaviors on a per top-level window basis. Dialogs, non-client areas and themes scale better.
  *  -5: DPI unaware with improved quality of GDI-based content. 
- * @param process May be either "thread" (default) or "process"
  * @returns {Integer}  
  */
-SetScriptAwarenessContext(context, process:=0) => (process ? DllCall("SetProcessDpiAwarenessContext", "ptr", context, "ptr") : DllCall("SetThreadDpiAwarenessContext", "ptr", context, "ptr"))
+SetThreadDpiAwarenessContext(context) => DllCall("SetThreadDpiAwarenessContext", "ptr", context, "ptr")
+SetProcessDpiAwarenessContext(context) => DllCall("SetProcessDpiAwarenessContext", "ptr", context, "ptr")
 
 ClientToScreen(&x, &y, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     pt := Buffer(8), NumPut("int", x, "int", y, pt)
