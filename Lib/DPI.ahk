@@ -1,9 +1,49 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2
 
-; PRE-RELEASE VERSION
-; NOT MEANT FOR GENERAL USE
+/*
+	Name: DPI.ahk
+	Version 0.1 (01.09.23)
+	Created: 01.09.23
+	Author: Descolada
 
-global A_StandardDpi := 96
+	Description:
+	A library meant to standardize coordinates between computers/monitors with different DPIs, including multi-monitor setups. 
+
+    How this works:
+    This library, by default, normalizes all output coordinates to 96 DPI (100% scale) and all input coordinates to the DPI of the target window (if CoordMode is Client or Window).
+    Accompanied is WindowSpyDpi.ahk which is WindowSpy modified to normalize all coordinates to DPI 96. This can be used to get coordinates for your script. 
+    Then use the corresponding Win...Dpi variant of the function you wish to use, but using the normalized coordinates. 
+    If screen coordinates are used (CoordMode Screen) then usually they don't need to be converted and native functions can be used.
+    In addition, when DPI.ahk is used then the DPI awareness of the script is automatically set to monitor-aware. This might break compatibility with existing scripts. 
+
+    For example, using the default CoordMode("Mouse", "Client"), MouseGetPosDpi(&outX, &outY) will return coordinates scaled to DPI 96 taking account the monitor and window DPIs. 
+    Then, MouseMoveDpi(outX, outY) will convert the coordinates back to the proper DPI. This means that the coordinates from MouseGetPosDpi can be used the same in all computers, all
+    monitors, and all multi-monitor setups. 
+
+
+    DPI.ahk constants:
+    A_StandardDpi := 96 means than by default the conversion is to DPI 96, but this global variable can be changed to a higher value (eg 960 for 1000% scaling). 
+        This may be desired if pixel-perfect accuracy is needed.
+
+    DPI.ahk functions:
+    WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)     =>  Gets the DPI for the specified window
+    SetMaximumDPIAwareness()                                        =>  Sets script to per-monitor awareness instead of system-aware (which is the DPI of the primary monitor)
+    SetScriptAwarenessContext(context)                              =>  Sets DPI awareness of the running script to a new context
+    ConvertDpi(&coord, from, to)                                    =>  Converts a coordinate from DPI from to DPI to
+    DpiFromStandard(dpi, &x, &y)                                    =>  Converts a point (x,y) from DPI A_StandardDpi to the new DPI
+    DpiToStandard(dpi, &x, &y)                                      =>  Converts a point (x,y) from dpi to A_StandardDpi
+
+    In addition, the following built-in functions are converted:
+    MouseGetPosDpi, MouseMoveDpi, MouseClickDpi, MouseClickDragDpi, ClickDpi, WinGetPosDpi, WinGetClientPosDpi, PixelGetColorDpi, PixelSearchDpi, ImageSearchDpi, 
+    ControlGetPosDpi, ControlClickDpi
+
+    Notes:
+    If AHK has launched a new thread (eg MsgBox) then any new pseudo-thread executing during that (eg user presses hotkey) might revert DPI back to system-aware. 
+        Setting DPI awareness for script process and monitoring WM_DPICHANGED message doesn't change that. Source: https://www.autohotkey.com/boards/viewtopic.php?p=310542#p310542
+*/
+
+global A_StandardDpi := 96, WM_DPICHANGED := 0x02E0
+;SetMaximumDPIAwareness(1) ; Also set the process DPI awareness?
 SetMaximumDPIAwareness() ; Set DPI awareness of our script to maximum available by default
 
 ; Gets the DPI for the specified window
@@ -79,11 +119,68 @@ PixelSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?) {
     return out
 }
 
-; ImageSearch doesn't work with different screen scalings as the one the image was screenshot from
-ImageSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile) {
-    if (out := ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile))
+/**
+ * ImageSearch that may work with all DPIs. Higher resolution images usually work better than lower resolution (that is, screenshot with high scaling)
+ * OutputVarX, OutputVarY, X1, Y1, X2, Y2, ImageFile are same as native ImageSearch
+ * @param OutputVarX 
+ * @param OutputVarY 
+ * @param X1 
+ * @param Y1 
+ * @param X2 
+ * @param Y2 
+ * @param ImageFile 
+ * @param dpi Allows specifying the "screen/window DPI". By default if CoordMode Pixel is Screen then A_ScreenDPI is used, otherwise the active windows' DPI
+ * @param imgDpi Allows specifying the image DPI, since the DPI recorded in the image file is the one A_ScreenDPI was at the time of the taking. 
+ *  In multi-monitor setups the main screen DPI is A_ScreenDPI, but if secondary screen DPI is different and image is captured there, then the wrong DPI is recorded (the primary monitors')
+ *  If imgDpi is a VarRef then it's set to the image DPI contained in image info.
+ * @param imgW Gets set to the *w option value (eg the width of the image the search is actually performed with)
+ *  If screen/window DPI == image DPI then the actual size of the image is returned (since no scaling is necessary)
+ * @param imgH Gets set to the *h option value (eg the height of the image the search is actually performed with)
+ * @returns {number} 
+ */
+ImageSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, imgDpi?, &imgW?, &imgH?) {
+    static oGdip := InitGdip()
+
+    if !IsSet(dpi)
+        dpi := (A_CoordModePixel = "screen") ? A_ScreenDPI : WinGetDpi("A")
+
+    ImgPath := RegExMatch(ImageFile, "i)(?: |^)(?!\*(?:icon|trans|w|h|)[-\d]+)(.+)", &regOut:="") ? regOut[1] : ImageFile
+    if !InStr(ImgPath, "\")
+        ImgPath := A_WorkingDir "\" ImgPath
+    DllCall("gdiplus\GdipCreateBitmapFromFile", "uptr", StrPtr(ImgPath), "uptr*", &pBitmap:=0)
+    if IsSet(imgDpi) && imgDpi is VarRef
+        imgDpi := %imgDpi%, imgDpi := unset
+    if !IsSet(imgDpi)
+        DllCall("gdiplus\GdipGetImageHorizontalResolution", "uint", pBitmap, "float*", &imgDpi:=0), imgDpi := Round(imgDpi)
+
+    if !RegExMatch(ImageFile, "i)\*w([-\d]+)\s+\*h([-\d]+)", &regOut:="") {
+        DllCall("gdiplus\GdipGetImageWidth", "ptr", pBitmap, "uint*", &imgW:=0)
+        DllCall("gdiplus\GdipGetImageHeight", "ptr", pBitmap, "uint*", &imgH:=0)
+        if dpi != imgDpi
+            ConvertDpi(&imgW, imgDpi, dpi), ConvertDpi(&imgH, imgDpi, dpi)
+    } else
+        imgW := Integer(regOut[1]), imgH := Integer(regOut[2])
+
+    DllCall("gdiplus\GdipDisposeImage", "ptr", pBitmap)
+        
+    if (out := ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, (dpi != imgDpi ? "*w" imgW " *h" imgH " " : "") ImageFile))
         DpiToStandardExceptCoordModeScreen(A_CoordModePixel, &OutputVarX, &OutputVarY)
     return out
+
+    InitGdip() {
+        if (!DllCall("LoadLibrary", "str", "gdiplus", "UPtr"))
+            throw Error("Could not load GDI+ library")
+    
+        si := Buffer(A_PtrSize = 8 ? 24 : 16, 0)
+        , NumPut("UInt", 1, si)
+        , DllCall("gdiplus\GdiplusStartup", "UPtr*", &pToken:=0, "UPtr", si.Ptr, "UPtr", 0)
+        if (!pToken)
+            throw Error("Gdiplus failed to start. Please ensure you have gdiplus on your system")
+        _oGdip := {}
+        , _oGdip.DefineProp("ptr", {value:pToken})
+        , _oGdip.DefineProp("__Delete", {call:(this)=> DllCall("gdiplus\GdiplusShutdown", "Ptr", this.Ptr)}) 
+        return _oGdip
+    }
 }
 
 ControlGetPosDpi(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
@@ -112,15 +209,42 @@ DpiFromStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) {
         return
     DpiFromStandard(WinGetDpi("A"), &OutputVarX, &OutputVarY)
 }
-ConvertDpi(&coord, from, to) => (coord := DllCall("MulDiv", "int", coord, "int", to, "int", from, "int"))
+ConvertDpi(&coord, from, to) => (coord := IsNumber(coord) ? DllCall("MulDiv", "int", coord, "int", to, "int", from, "int") : coord)
 
 ; Convert a point from standard to desired DPI, or vice-versa
-DpiFromStandard(dpi, &x, &y) => (x := DllCall("MulDiv", "int", x, "int", dpi, "int", A_StandardDpi, "int"), y := DllCall("MulDiv", "int", y, "int", dpi, "int", A_StandardDpi, "int"))
-DpiToStandard(dpi, &x, &y) => (x := DllCall("MulDiv", "int", x, "int", A_StandardDpi, "int", dpi, "int"), y := DllCall("MulDiv", "int", y, "int", A_StandardDpi, "int", dpi, "int"))
+DpiFromStandard(dpi, &x, &y) => (x := IsNumber(x) ? DllCall("MulDiv", "int", x, "int", dpi, "int", A_StandardDpi, "int") : x, y := IsNumber(y) ? DllCall("MulDiv", "int", y, "int", dpi, "int", A_StandardDpi, "int") : y)
+DpiToStandard(dpi, &x, &y) => (x := IsNumber(x) ? DllCall("MulDiv", "int", x, "int", A_StandardDpi, "int", dpi, "int") : x, y := IsNumber(y) ? DllCall("MulDiv", "int", y, "int", A_StandardDpi, "int", dpi, "int") : y)
 
 ; Sets script to per-monitor awareness instead of system-aware (which is the DPI of the primary monitor)
-SetMaximumDPIAwareness() => SetScriptAwarenessContext(VerCompare(A_OSVersion, ">=10.0.15063") ? -4 : -3)
-SetScriptAwarenessContext(context) => DllCall("SetThreadDpiAwarenessContext", "ptr", context, "ptr")
+SetMaximumDPIAwareness(process:=0) => SetScriptAwarenessContext(VerCompare(A_OSVersion, ">=10.0.15063") ? -4 : -3, process)
+
+/**
+ * Returns one of the following:
+ * DPI_AWARENESS_INVALID = -1,
+ * DPI_AWARENESS_UNAWARE = 0,
+ * DPI_AWARENESS_SYSTEM_AWARE = 1,
+ * DPI_AWARENESS_PER_MONITOR_AWARE = 2
+ * @returns {Integer} 
+ */
+GetScriptDpiAwareness() {
+    return DllCall("GetAwarenessFromDpiAwarenessContext", "ptr", DllCall("GetThreadDpiAwarenessContext", "ptr"), "int")
+}
+
+/**
+ * Uses SetThreadDpiAwarenessContext to set the running scripts' DPI awareness. Returns the previous context, but not in the same format as the
+ * following context argument.
+ * @param context May be one of the following values:
+ *  -1: DPI unaware. Automatically scaled by the system to system-dpi
+ *  -2: System DPI aware. Script queries for the DPI once and uses that value for the lifetime of the script.
+ *      If the DPI changes, the script will not adjust to the new DPI value.
+ *  -3: Per monitor DPI aware. Adjusts the scale factor whenever the DPI changes.
+ *  -4: Per Monitor v2. An advancement over the original per-monitor DPI awareness mode, which enables applications 
+ *      to access new DPI-related scaling behaviors on a per top-level window basis. Dialogs, non-client areas and themes scale better.
+ *  -5: DPI unaware with improved quality of GDI-based content. 
+ * @param process May be either "thread" (default) or "process"
+ * @returns {Integer}  
+ */
+SetScriptAwarenessContext(context, process:=0) => (process ? DllCall("SetProcessDpiAwarenessContext", "ptr", context, "ptr") : DllCall("SetThreadDpiAwarenessContext", "ptr", context, "ptr"))
 
 ClientToScreen(&x, &y, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     pt := Buffer(8), NumPut("int", x, "int", y, pt)
