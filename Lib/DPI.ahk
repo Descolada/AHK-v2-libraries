@@ -43,6 +43,8 @@
     Notes:
     If AHK has launched a new thread (eg MsgBox) then any new pseudo-thread executing during that (eg user presses hotkey) might revert DPI back to system-aware. 
         Setting DPI awareness for script process and monitoring WM_DPICHANGED message doesn't change that. Source: https://www.autohotkey.com/boards/viewtopic.php?p=310542#p310542
+        For this reason, every Dpi function call that depends on coordinates automatically calls SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext). This has a slight
+        time cost equivalent to ~1 WinGetPos call. Overall, the Dpi functions are ~7-10x slower than the native ones, but still fast (<0.1ms per call in my setup).
 */
 
 global A_StandardDpi := 96, WM_DPICHANGED := 0x02E0, A_MaximumPerMonitorDpiAwarenessContext := VerCompare(A_OSVersion, ">=10.0.15063") ? -4 : -3, A_DefaultDpiAwarenessContext := A_MaximumPerMonitorDpiAwarenessContext
@@ -117,16 +119,13 @@ WinGetClientPosDpi(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitl
 }
 
 PixelGetColorDpi(X, Y, Mode := '') {
-    SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
-    , DpiFromStandardExceptCoordModeScreen(A_CoordModePixel, &X, &Y)
-    return PixelGetColor(X, Y, Mode)
+    return (SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
+    , DpiFromStandardExceptCoordModeScreen(A_CoordModePixel, &X, &Y), PixelGetColor(X, Y, Mode))
 }
 
 PixelSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?) {
     SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
-    , out := PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?)
-    if out
-        DpiToStandardExceptCoordModeScreen(A_CoordModePixel, &OutputVarX, &OutputVarY)
+    , (out := PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?)) && DpiToStandardExceptCoordModeScreen(A_CoordModePixel, &OutputVarX, &OutputVarY)
     return out
 }
 
@@ -212,21 +211,29 @@ ControlClickDpi(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount?, O
     ControlClick(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount?, Options?, ExcludeTitle?, ExcludeText?)
 }
 
-DpiToStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) {
-    if CoordMode = "screen"
-        return
-    DpiToStandard(WinGetDpi("A"), &OutputVarX, &OutputVarY)
+; Takes a GUI options string and converts all coordinates from fromDpi (default: A_StandardDpi) to targetDpi
+; Original author: user hi5, https://autohotkey.com/boards/viewtopic.php?f=6&t=37913
+GuiOptScaleDpi(opt, targetDpi, fromDpi := A_StandardDpi) {
+    out := ""
+    Loop Parse, opt, A_Space A_Tab {
+        if RegExMatch(A_LoopField,"i)(w0|h0|h-1|xp|yp|xs|ys|xm|ym)$|(icon|hwnd)") ; these need to be bypassed
+            out .= A_LoopField A_Space
+        else if RegExMatch(A_LoopField,"i)^\*?(x|xp|y|yp|w|h|s)[-+]?\K(\d+)", &number:="") ; should be processed
+            out .= StrReplace(A_LoopField, number[2], ConvertDpi(&_:=Integer(number[2]), fromDpi, targetDpi)) A_Space
+        else ; the rest can be bypassed as well (variable names etc)
+            out .= A_LoopField A_Space
+    }
+    Return Trim(out)
 }
-DpiFromStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) {
-    if CoordMode = "screen"
-        return
-    DpiFromStandard(WinGetDpi("A"), &OutputVarX, &OutputVarY)
-}
-ConvertDpi(&coord, from, to) => (coord := IsNumber(coord) ? DllCall("MulDiv", "int", coord, "int", to, "int", from, "int") : coord)
+
+DpiToStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) => (CoordMode = "screen" || DpiToStandard(WinGetDpi("A"), &OutputVarX, &OutputVarY))
+DpiFromStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) => (CoordMode = "screen" || DpiFromStandard(WinGetDpi("A"), &OutputVarX, &OutputVarY))
+ConvertDpi(&coord, from, to) => ((IsNumber(coord) && coord := DllCall("MulDiv", "int", coord, "int", to, "int", from, "int")) || coord)
 
 ; Convert a point from standard to desired DPI, or vice-versa
-DpiFromStandard(dpi, &x, &y) => (x := IsNumber(x) ? DllCall("MulDiv", "int", x, "int", dpi, "int", A_StandardDpi, "int") : x, y := IsNumber(y) ? DllCall("MulDiv", "int", y, "int", dpi, "int", A_StandardDpi, "int") : y)
-DpiToStandard(dpi, &x, &y) => (x := IsNumber(x) ? DllCall("MulDiv", "int", x, "int", A_StandardDpi, "int", dpi, "int") : x, y := IsNumber(y) ? DllCall("MulDiv", "int", y, "int", A_StandardDpi, "int", dpi, "int") : y)
+DpiFromStandard(dpi, &x, &y) => (IsInteger(x) && DllCall("MulDiv", "int", x, "int", dpi, "int", A_StandardDpi, "int"), IsInteger(y) && DllCall("MulDiv", "int", y, "int", dpi, "int", A_StandardDpi, "int"))
+DpiToStandard(dpi, &x, &y) => (IsInteger(x) && DllCall("MulDiv", "int", x, "int", A_StandardDpi, "int", dpi, "int"), IsInteger(y) && DllCall("MulDiv", "int", y, "int", A_StandardDpi, "int", dpi, "int"))
+ScaleFactorFromDpi(dpi) => Round(dpi / 96, 2)
 
 /**
  * Returns one of the following:
@@ -236,9 +243,7 @@ DpiToStandard(dpi, &x, &y) => (x := IsNumber(x) ? DllCall("MulDiv", "int", x, "i
  * DPI_AWARENESS_PER_MONITOR_AWARE = 2
  * @returns {Integer} 
  */
-GetScriptDpiAwareness() {
-    return DllCall("GetAwarenessFromDpiAwarenessContext", "ptr", DllCall("GetThreadDpiAwarenessContext", "ptr"), "int")
-}
+GetScriptDpiAwareness() => DllCall("GetAwarenessFromDpiAwarenessContext", "ptr", DllCall("GetThreadDpiAwarenessContext", "ptr"), "int")
 
 /**
  * Uses SetThreadDpiAwarenessContext to set the running scripts' DPI awareness. Returns the previous context, but not in the same format as the
@@ -264,8 +269,8 @@ ClientToScreen(&x, &y, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
 
 ScreenToClient(&x, &y, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     pt := Buffer(8), NumPut("int", x, "int", y, pt)
-    DllCall("ScreenToClient", "ptr", IsSet(WinTitle) && IsInteger(WinTitle) ? WinTitle : WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "ptr", pt)
-    x := NumGet(pt, 0, "int"), y := NumGet(pt, 4, "int")
+    , DllCall("ScreenToClient", "ptr", IsSet(WinTitle) && IsInteger(WinTitle) ? WinTitle : WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "ptr", pt)
+    , x := NumGet(pt, 0, "int"), y := NumGet(pt, 4, "int")
 }
 
 ; The following functions apparently do nothing
