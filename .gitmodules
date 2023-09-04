@@ -1,3 +1,6 @@
 [submodule "UIA-v2"]
 	path = UIA-v2
 	url = https://github.com/Descolada/UIA-v2
+[submodule "OCR"]
+	path = OCR
+	url = https://github.com/Descolada/OCR
