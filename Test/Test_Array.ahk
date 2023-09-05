@@ -1,4 +1,4 @@
-#include "..\Lib\Array.ahk"
+﻿#include "..\Lib\Array.ahk"
 #Include "..\Lib\DUnit.ahk"
 
 class ArrayTestSuite {
