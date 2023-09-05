@@ -1,6 +1,6 @@
 ﻿/*
 	Name: String.ahk
-	Version 0.14 (23.03.2023)
+	Version 0.15 (05.09.23)
 	Created: 27.08.22
 	Author: Descolada
 	Credit:
@@ -184,7 +184,7 @@ Class String2 {
 			}
 			return out
 		}
-		return RegExReplace(this, needleRegex, replacement?, &outputVarCount?, limit?, startingPos?)
+		return RegExReplace(this, needleRegex, replacement?, &outputVarCount, limit?, startingPos?)
 	}
 	/**
 	 * Add character(s) to left side of the input string.
