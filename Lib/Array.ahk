@@ -1,6 +1,6 @@
 ﻿/*
 	Name: Array.ahk
-	Version 0.3 (24.03.23)
+	Version 0.4 (05.09.23)
 	Created: 27.08.22
 	Author: Descolada
 
@@ -24,7 +24,7 @@
     Array.Shuffle()                         => Randomizes the array.
     Array.Join(delim:=",")                  => Joins all the elements to a string using the provided delimiter.
     Array.Flat()                            => Turns a nested array into a one-level array.
-    Array.Extend(arr)                       => Adds the contents of another array to the end of this one.
+    Array.Extend(enums*)                    => Adds the values of other arrays or enumerables to the end of this one.
 */
 
 Array.Prototype.base := Array2
@@ -193,11 +193,11 @@ class Array2 {
     static Count(value) {
         count := 0
         if HasMethod(value) {
-            for v in this
+            for _, v in this
                 if value(v?)
                     count++
         } else
-            for v in this
+            for _, v in this
                 if v == value
                     count++
         return count
@@ -234,7 +234,7 @@ class Array2 {
             if !IsSet(pCallback)
                 throw ValueError("No valid options provided!", -1)
         }
-        mFields := NumGet(ObjPtr(this) + (8 + 3*A_PtrSize), "Ptr") ; 0 is VTable. 2 is mBase, 4 is FlatVector, 5 is mLength and 6 is mCapacity
+        mFields := NumGet(ObjPtr(this) + (8 + (VerCompare(A_AhkVersion, "<2.1-") > 0 ? 3 : 5)*A_PtrSize), "Ptr") ; in v2.0: 0 is VTable. 2 is mBase, 3 is mFields, 4 is FlatVector, 5 is mLength and 6 is mCapacity
         DllCall("msvcrt.dll\qsort", "Ptr", mFields, "UInt", this.Length, "UInt", sizeofFieldType, "Ptr", pCallback, "Cdecl")
         CallbackFree(pCallback)
         if RegExMatch(optionsOrCallback, "i)R(?!a)")
@@ -309,14 +309,16 @@ class Array2 {
     }
     /**
      * Adds the contents of another array to the end of this one.
-     * @param arr The array that is used to extend this one.
+     * @param enums The arrays or other enumerables that are used to extend this one.
      * @returns {Array}
      */
-    static Extend(arr) {
-        if !HasMethod(arr, "__Enum")
-            throw ValueError("Extend: arr must be an iterable")
-        for v in arr
-            this.Push(v)
+    static Extend(enums*) {
+        for enum in enums {
+            if !HasMethod(enum, "__Enum")
+                throw ValueError("Extend: arr must be an iterable")
+            for _, v in enum
+                this.Push(v)
+        }
         return this
     }
 }
