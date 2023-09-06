@@ -2,7 +2,7 @@
 
 /*
 	Name: DPI.ahk
-	Version 0.1 (01.09.23)
+	Version 0.2 (06.09.23)
 	Created: 01.09.23
 	Author: Descolada
 
@@ -29,12 +29,20 @@
     
 
     DPI.ahk functions:
-    WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)     =>  Gets the DPI for the specified window
     SetThreadDpiAwarenessContext(context)                           =>  Sets DPI awareness of the running script thread to a new context
     SetProcessDpiAwarenessContext(context)                          =>  Sets DPI awareness of the running process to a new context
+    WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)     =>  Gets the DPI for the specified window
     ConvertDpi(&coord, from, to)                                    =>  Converts a coordinate from DPI from to DPI to
     DpiFromStandard(dpi, &x, &y)                                    =>  Converts a point (x,y) from DPI A_StandardDpi to the new DPI
     DpiToStandard(dpi, &x, &y)                                      =>  Converts a point (x,y) from dpi to A_StandardDpi
+    GetMonitorHandles()                                             =>  Returns an array of monitor handles for all active monitors
+    MonitorFromPointDpi(x, y, CoordMode, flags:=2)                  =>  Gets monitor from a point (if CoordMode is not "screen" then also adjusts for DPI)
+    MonitorFromWindow(WinTitle?, WinText?, flags:=2, ...)           =>  Gets monitor from window
+    GetDpiForMonitor(hMonitor, monitorDpiType := 0)                 =>  Gets the DPI for a specific monitor
+    CoordsToScreen(&X, &Y, CoordMode, WinTitle?, ...)               =>  Converts coordinates X and Y from CoordMode to screen coordinates
+    CoordsToWindow(&X, &Y, CoordMode, WinTitle?, ...)               =>  Converts coordinates X and Y from CoordMode to window coordinates
+    CoordsToClient(&X, &Y, CoordMode, WinTitle?, ...)               =>  Converts coordinates X and Y from CoordMode to client coordinates
+    ScreenToWindow(&X, &Y, hWnd), ScreenToClient(&X, &Y, hWnd), WindowToClient(&X, &Y, hWnd), WindowToScreen(&X, &Y, hWnd), ClientToWindow(&X, &Y, hWnd), ClientToScreen(&X, &Y, hWnd)
 
     In addition, the following built-in functions are converted:
     MouseGetPosDpi, MouseMoveDpi, MouseClickDpi, MouseClickDragDpi, ClickDpi, WinGetPosDpi, WinGetClientPosDpi, PixelGetColorDpi, PixelSearchDpi, ImageSearchDpi, 
@@ -51,7 +59,14 @@ global A_StandardDpi := 96, WM_DPICHANGED := 0x02E0, A_MaximumPerMonitorDpiAware
 ;SetMaximumDPIAwareness(1) ; Also set the process DPI awareness?
 SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext) ; Set DPI awareness of our script to maximum available per-monitor by default
 
-; Gets the DPI for the specified window
+/**
+ * Gets the DPI for the specified window
+ * @param WinTitle WinTitle, same as built-in
+ * @param WinText 
+ * @param ExcludeTitle 
+ * @param ExcludeText 
+ * @returns {Integer} 
+ */
 WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     /*
     ; The following only adds added complexity. GetDpiForWindow returns the correct DPI for windows that are monitor-aware. 
@@ -66,9 +81,78 @@ WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     , DllCall("Shcore.dll\GetDpiForMonitor", "ptr", hMonitor, "int", 0, "uint*", &dpiX:=0, "uint*", &dpiY:=0), dpiX)
 }
 
+/**
+ * Returns an array of handles to monitors in order of monitors
+ * @returns {Array} 
+ */
+GetMonitorHandles() {
+	static EnumProc := CallbackCreate(MonitorEnumProc)
+	Monitors := []
+	return DllCall("User32\EnumDisplayMonitors", "Ptr", 0, "Ptr", 0, "Ptr", EnumProc, "Ptr", ObjPtr(Monitors), "Int") ? Monitors : false
+
+    MonitorEnumProc(hMonitor, hDC, pRECT, ObjectAddr) {
+        Monitors := ObjFromPtrAddRef(ObjectAddr)
+        Monitors.Push(hMonitor)
+        return true
+    }
+}
+
+/**
+ * Gets a monitor from coordinates (follows CoordMode)
+ * @param {Integer} x DPI-adjusted x-coordinate
+ * @param {Integer} y DPI-adjusted y-coordinate
+ * @param {String} CoordMode The CoordMode to use (provide A_CoordModeMouse, A_CoordModePixel etc)
+ * @param {number} flags Determines the function's return value if the point is not contained within any display monitor.
+ * Defaults to nearest monitor.
+ * MONITOR_DEFAULTTONULL = 0    => Returns 0.
+ * MONITOR_DEFAULTTOPRIMARY = 1 => Returns a handle to the primary display monitor. 
+ * MONITOR_DEFAULTTONEAREST = 2 => Default. Returns a handle to the display monitor that is nearest to the point.
+ * @returns {Integer} Handle to the monitor
+ */
+MonitorFromPointDpi(x, y, CoordMode, flags:=2) {
+    SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext)
+    , DpiFromStandardExceptCoordModeScreen(CoordMode, &X, &Y)
+    , CoordsToScreen(&X, &Y, CoordMode, "A")
+    return DllCall("MonitorFromPoint", "int64", y << 32 | (x & 0xFFFFFFFF), "int", flags, "ptr")
+}
+; Gets a monitor from screen coordinates, no conversions done
+MonitorFromPoint(x, y, flags:=2) {
+    SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext)
+    return DllCall("MonitorFromPoint", "int64", y << 32 | (x & 0xFFFFFFFF), "int", flags, "ptr")
+}
+
+/**
+ * Gets a monitor from a window
+ * @param WinTitle 
+ * @param WinText 
+ * @param {Integer} flags Determines the function's return value if the point is not contained within any display monitor.
+ * Defaults to nearest monitor.
+ * MONITOR_DEFAULTTONULL = 0    => Returns 0.
+ * MONITOR_DEFAULTTOPRIMARY = 1 => Returns a handle to the primary display monitor. 
+ * MONITOR_DEFAULTTONEAREST = 2 => Default. Returns a handle to the display monitor that is nearest to the point.
+ * @param ExcludeTitle 
+ * @param ExcludeText 
+ * @returns {Integer} 
+ */
+MonitorFromWindow(WinTitle?, WinText?, flags:=2, ExcludeTitle?, ExcludeText?) => DllCall("MonitorFromWindow", "int", WinExist(WinTitle?, WinText?, ExcludeText?, ExcludeText?), "int", flags, "ptr")
+
+/**
+ * Returns the DPI for a certain monitor
+ * @param {Integer} hMonitor Handle to the monitor (can be gotten with GetMonitorHandles)
+ * @param {Integer} Monitor_Dpi_Type The type of DPI being queried. Can be one of the following:
+ *  MDT_EFFECTIVE_DPI = 0 => Default, the effective DPI. This value should be used when determining the correct scale factor for scaling UI elements.
+ *  MDT_ANGULAR_DPI = 1 => The angular DPI. This DPI ensures rendering at a compliant angular resolution on the screen. This does not include the scale factor set by the user for this specific display.
+ *  MDT_RAW_DPI = 2 => The raw DPI. This value is the linear DPI of the screen as measured on the screen itself.
+ * @returns {Integer} 
+ */
+GetDpiForMonitor(hMonitor, monitorDpiType := 0) {
+	if !DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "UInt", monitorDpiType, "UInt*", &dpiX:=0, "UInt*", &dpiY:=0, "UInt")
+		return dpiX
+}
+
 MouseGetPosDpi(&OutputVarX?, &OutputVarY?, &OutputVarWin?, &OutputVarControl?, Flag?) {
     SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext)
-    , MouseGetPos(&OutputVarX?, &OutputVarY?, &OutputVarWin?, &OutputVarControl?, Flag?)
+    , MouseGetPos(&OutputVarX, &OutputVarY, &OutputVarWin, &OutputVarControl, Flag?)
     , DpiToStandardExceptCoordModeScreen(A_CoordModeMouse, &OutputVarX, &OutputVarY)
 }
 
@@ -107,14 +191,14 @@ ClickDpi(Options*) {
 ; Useful if window is moved to another screen after getting the position and size
 WinGetPosDpi(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
-    , WinGetPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+    , WinGetPos(&X, &Y, &Width, &Height, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
     , DpiToStandard(WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &Width, &Height)
 }
 
 ; Useful if window is moved to another screen after getting the position and size
 WinGetClientPosDpi(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
-    , WinGetClientPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+    , WinGetClientPos(&X, &Y, &Width, &Height, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
     , DpiToStandard(WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &Width, &Height)
 }
 
@@ -195,7 +279,7 @@ ImageSearchDpi(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, imgDpi
 
 ControlGetPosDpi(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     SetThreadDpiAwarenessContext(A_MaximumPerMonitorDpiAwarenessContext)
-    , ControlGetPos(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+    , ControlGetPos(&OutX, &OutY, &OutWidth, &OutHeight, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
     , DpiToStandard(dpi := WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &OutX, &OutY)
     , DpiToStandard(dpi, &OutWidth, &OutHeight)
 }
@@ -261,16 +345,70 @@ GetScriptDpiAwareness() => DllCall("GetAwarenessFromDpiAwarenessContext", "ptr",
 SetThreadDpiAwarenessContext(context) => DllCall("SetThreadDpiAwarenessContext", "ptr", context, "ptr")
 SetProcessDpiAwarenessContext(context) => DllCall("SetProcessDpiAwarenessContext", "ptr", context, "ptr")
 
-ClientToScreen(&x, &y, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+; Converts coordinates to screen coordinates depending on provided CoordMode and window
+CoordsToScreen(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+    SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext)
+    if CoordMode = "screen" {
+        return
+    } else if CoordMode = "client" {
+        ClientToScreen(&X, &Y, WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?))
+    } else {
+        WindowToScreen(&X, &Y, WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?))
+    }
+}
+; Converts coordinates to client coordinates depending on provided CoordMode and window
+CoordsToClient(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+    SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext)
+    if CoordMode = "screen" {
+        ScreenToClient(&X, &Y, WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?))
+    } else if CoordMode = "client" {
+        return
+    } else {
+        WindowToClient(&X, &Y, WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?))
+    }
+}
+; Converts coordinates to window coordinates depending on provided CoordMode and window
+CoordsToWindow(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+    SetThreadDpiAwarenessContext(A_DefaultDpiAwarenessContext)
+    if CoordMode = "screen" {
+        ScreenToWindow(&X, &Y, WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?))
+    } else if CoordMode = "client" {
+        ClientToWindow(&X, &Y, WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?))
+    } else {
+        return
+    }
+}
+
+ClientToScreen(&x, &y, hWnd?) {
     pt := Buffer(8), NumPut("int", x, "int", y, pt)
-    DllCall("ClientToScreen", "ptr", IsSet(WinTitle) && IsInteger(WinTitle) ? WinTitle : WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "ptr", pt)
+    DllCall("ClientToScreen", "ptr", hWnd, "ptr", pt)
     x := NumGet(pt, 0, "int"), y := NumGet(pt, 4, "int")
 }
 
-ScreenToClient(&x, &y, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+ScreenToClient(&x, &y, hWnd?) {
     pt := Buffer(8), NumPut("int", x, "int", y, pt)
-    , DllCall("ScreenToClient", "ptr", IsSet(WinTitle) && IsInteger(WinTitle) ? WinTitle : WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "ptr", pt)
+    , DllCall("ScreenToClient", "ptr", hWnd, "ptr", pt)
     , x := NumGet(pt, 0, "int"), y := NumGet(pt, 4, "int")
+}
+
+ScreenToWindow(&x, &y, hWnd?) {
+	DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", RECT := Buffer(16,0))
+	x := x - NumGet(RECT, 0, "Int"), y := y - NumGet(RECT, 4, "Int")
+}
+
+WindowToScreen(&x, &y, hWnd?) {
+	DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", RECT := Buffer(16,0))
+	x := x + NumGet(RECT, 0, "Int"), y := y + NumGet(RECT, 4, "Int")
+}
+
+ClientToWindow(&x, &y, hWnd?) {
+    ClientToScreen(&x, &y, hWnd?)
+    ScreenToWindow(&x, &y, hWnd?)
+}
+
+WindowToClient(&x, &y, hWnd?) {
+    WindowToScreen(&x, &y, hWnd?)
+    ScreenToClient(&x, &y, hWnd?)
 }
 
 ; The following functions apparently do nothing
