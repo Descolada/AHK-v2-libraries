@@ -1,5 +1,5 @@
 ﻿#Requires Autohotkey v2.0+
-#Include UIA.ahk
+#Include ..\UIA-v2\Lib\UIA.ahk
 toc := "
 (
     Table of contents:
@@ -48,7 +48,7 @@ F6::
 }
 
 /**
- * Editable class can be used to interact with editable elements suchs as textbox and manipulate their content.
+ * Editable class can be used to interact with editable elements such as textboxes and manipulate their content.
  * Editable extends IUIAutomationElement class, so all normal UIA element methods can be used with the returned object.
  * 
  * Editable()         => creates a new instance for the element with the caret (selected element)
@@ -80,7 +80,8 @@ class Editable extends UIA.IUIAutomationElement {
         static activatedHwnds := Map(), OBJID_WINDOW := 0x00000000, OBJID_CLIENT := 0xfffffffc, OBJID_CARET := 0xfffffff8, WM_GETOBJECT := 0x003D, IID := Buffer(16)
         hWnd := WinExist("A"), cHwnd := 0, pLib := Editable.__pLib, this.DefineProp("IsIAccessible2", {value:0})
         if IsSet(element) {
-            this.DefineProp("ptr", {value:element.ptr}), element.AddRef()
+            target := Editable.NearestEditableElement(element)
+            this.DefineProp("ptr", {value:target.ptr}), target.AddRef()
             try {
                 this.DefineProp("IAccessible", {value:this.GetIAccessible()})
                 DllCall("oleacc\WindowFromAccessibleObject", "Ptr", this.IAccessible, "uint*", &hWnd:=0)
