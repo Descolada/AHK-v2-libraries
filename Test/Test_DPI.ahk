@@ -27,27 +27,27 @@ class DPITestSuite {
     __GetNPP() => this.__GetWindow("ahk_exe notepad++.exe", "notepad++.exe")
 
     Test_MonitorFuncs() {
-        DUnit.True(MonitorFromWindow("A"))
-        DUnit.Equal(MonitorFromPointDpi(100, 100, "client"), MonitorFromWindow("A"))
+        DUnit.True(DPI.MonitorFromWindow("A"))
+        DUnit.Equal(DPI.MonitorFromPoint(100, 100, "client"), DPI.MonitorFromWindow("A"))
         CoordMode "Mouse", "Screen"
-        DUnit.Equal(GetDpiForMonitor(MonitorFromPointDpi(100, 100, "screen")), 144)
-        DUnit.Equal(GetDpiForMonitor(MonitorFromPointDpi(A_ScreenWidth+100, 100, "screen")), 96)
+        DUnit.Equal(DPI.GetDpiForMonitor(DPI.MonitorFromPoint(100, 100, "screen")), 144)
+        DUnit.Equal(DPI.GetDpiForMonitor(DPI.MonitorFromPoint(A_ScreenWidth+100, 100, "screen")), 96)
 
-        monitors := GetMonitorHandles()
-        DUnit.Equal(GetDpiForMonitor(monitors[1]), 144)
-        DUnit.Equal(GetDpiForMonitor(monitors[2]), 96)
+        monitors := DPI.GetMonitorHandles()
+        DUnit.Equal(DPI.GetDpiForMonitor(monitors[1]), 144)
+        DUnit.Equal(DPI.GetDpiForMonitor(monitors[2]), 96)
     }
 
     Test_ClickDPI() {
         this.__GetCalculator()
         SetMouseDelay 0
         SetDefaultMouseSpeed 0
-        ClickDpi(47, 329)
+        DPI.Click(47, 329)
     }
 
     Test_ImageSearch() {
         WinGetPos(&wX, &wY, &wW, &wH, this.__GetCalculator())
-        DUnit.True(ImageSearchDpi(&outX, &outY, 0, 0, wW, wH, "*150 " A_WorkingDir "\..\Resources\DPI_Tutorial\Calculator_icon_225%.png",,216))
+        DUnit.True(DPI.ImageSearch(&outX, &outY, 0, 0, wW, wH, "*150 " A_WorkingDir "\..\Resources\DPI_Tutorial\Calculator_icon_225%.png",,216))
     }
 
     Test_FindText() {
@@ -65,7 +65,7 @@ class DPITestSuite {
 
         ;if (ok:=FindText(&X, &Y, wX, wY, wX+wW, wY+wH, 0.3, 0.2, Text, , 0, , , , , zoomW:=WinGetDpi(wTitle)/216, zoomW))
         ;if (ok:=FindText(&X, &Y, wX, wY, wX+wW, wY+wH, 0.3, 0.3, "##10$Calculator_icon_225%.png", , 0, , , , , zoomW:=WinGetDpi(wTitle)/216, zoomW))
-        ok:=FindText(&X, &Y, wX, wY, wX+wW, wY+wH, 0.2, 0.1, "##10$" A_WorkingDir "\..\Resources\DPI_Tutorial\Chrome_Reload_100%.png", , 0, , , , , zoomW:=WinGetDpi(wTitle)/96, zoomW)
+        ok:=FindText(&X, &Y, wX, wY, wX+wW, wY+wH, 0.2, 0.1, "##10$" A_WorkingDir "\..\Resources\DPI_Tutorial\Chrome_Reload_100%.png", , 0, , , , , zoomW:=DPI.WinGetDpi(wTitle)/96, zoomW)
         DUnit.True(ok)
     }
 
@@ -74,7 +74,7 @@ class DPITestSuite {
 
         SetMouseDelay 0
         SetDefaultMouseSpeed 0
-        MouseMoveDpi(47, 329)
+        DPI.MouseMove(47, 329)
 
         CoordMode "Mouse", "Client"
         MouseGetPos(&clientX, &clientY)
@@ -85,22 +85,29 @@ class DPITestSuite {
 
         CoordMode "Mouse", "Client"
         MouseGetPos(&newX, &newY)
-        CoordsToClient(&newX, &newY, A_CoordModeMouse)
+        DPI.CoordsToClient(&newX, &newY, A_CoordModeMouse)
         DUnit.Equal(newX, clientX), DUnit.Equal(newY, clientY)
 
         CoordMode "Mouse", "Window"
         MouseGetPos(&newX, &newY)
-        CoordsToWindow(&newX, &newY, A_CoordModeMouse)
+        DPI.CoordsToWindow(&newX, &newY, A_CoordModeMouse)
         DUnit.Equal(newX, windowX), DUnit.Equal(newY, windowY)
 
         CoordMode "Mouse", "Screen"
         MouseGetPos(&newX, &newY)
-        CoordsToScreen(&newX, &newY, A_CoordModeMouse)
+        DPI.CoordsToScreen(&newX, &newY, A_CoordModeMouse)
         DUnit.Equal(newX, screenX), DUnit.Equal(newY, screenY)
     }
 
     Test_WinGetDPI() {
-        DUnit.Equal(WinGetDpi(this.__GetNPP()), A_ScreenDPI)
-        DUnit.Equal(WinGetDpi(hwnd := this.__GetCalculator()), GetDpiForMonitor(MonitorFromWindow(hwnd)))
+        DUnit.Equal(DPI.WinGetDpi(this.__GetNPP()), A_ScreenDPI)
+        DUnit.Equal(DPI.WinGetDpi(hwnd := this.__GetCalculator()), DPI.GetDpiForMonitor(DPI.MonitorFromWindow(hwnd)))
+    }
+
+    Test_GuiOptScale() {
+        DUnit.Equal(DPI.GuiOptScale("w100 h-1", 144), "w150 h-1")
+        DPI.StandardDpi := 144
+        DUnit.Equal(DPI.GuiOptScale("w100 h-1", 144), "w100 h-1")
+        DPI.StandardDPI := 96
     }
 }
