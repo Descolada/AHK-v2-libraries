@@ -22,23 +22,23 @@
 
 
     DPI.ahk constants:
-    DPI.StandardDpi := 96 means than by default the conversion is to DPI 96, but this global variable can be changed to a higher value (eg 960 for 1000% scaling). 
+    DPI.Standard := 96 means than by default the conversion is to DPI 96, but this global variable can be changed to a higher value (eg 960 for 1000% scaling). 
         This may be desired if pixel-perfect accuracy is needed.
     DPI.MaximumPerMonitorDpiAwarenessContext contains either -3 or -4 depending on Windows version
     DPI.DefaultDpiAwarenessContext determines the default DPI awareness which will be set after each Dpi function call, by default it's DPI.MaximumPerMonitorDpiAwarenessContext
     
 
     DPI.ahk functions:
-    DPI.SetThreadDpiAwarenessContext(context)                        =>  Sets DPI awareness of the running script thread to a new context
-    DPI.SetProcessDpiAwarenessContext(context)                       =>  Sets DPI awareness of the running process to a new context
-    DPI.WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)  =>  Gets the DPI for the specified window
+    DPI.SetThreadAwarenessContext(context)                           =>  Sets DPI awareness of the running script thread to a new context
+    DPI.SetProcessAwarenessContext(context)                          =>  Sets DPI awareness of the running process to a new context
+    DPI.GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)  =>  Gets the DPI for the specified window
     DPI.ConvertCoord(&coord, from, to)                               =>  Converts a coordinate from DPI from to DPI to
-    DPI.FromStandard(dpi, &x, &y)                                    =>  Converts a point (x,y) from DPI this.StandardDpi to the new DPI
-    DPI.ToStandard(dpi, &x, &y)                                      =>  Converts a point (x,y) from dpi to this.StandardDpi
+    DPI.FromStandard(dpi, &x, &y)                                    =>  Converts a point (x,y) from DPI DPI.Standard to the new DPI
+    DPI.ToStandard(dpi, &x, &y)                                      =>  Converts a point (x,y) from dpi to DPI.Standard
     DPI.GetMonitorHandles()                                          =>  Returns an array of monitor handles for all active monitors
     DPI.MonitorFromPoint(x, y, CoordMode, flags:=2)                  =>  Gets monitor from a point (if CoordMode is not "screen" then also adjusts for DPI)
     DPI.MonitorFromWindow(WinTitle?, WinText?, flags:=2, ...)        =>  Gets monitor from window
-    DPI.GetDpiForMonitor(hMonitor, monitorDpiType := 0)              =>  Gets the DPI for a specific monitor
+    DPI.GetForMonitor(hMonitor, monitorDpiType := 0)                 =>  Gets the DPI for a specific monitor
     DPI.CoordsToScreen(&X, &Y, CoordMode, WinTitle?, ...)            =>  Converts coordinates X and Y from CoordMode to screen coordinates
     DPI.CoordsToWindow(&X, &Y, CoordMode, WinTitle?, ...)            =>  Converts coordinates X and Y from CoordMode to window coordinates
     DPI.CoordsToClient(&X, &Y, CoordMode, WinTitle?, ...)            =>  Converts coordinates X and Y from CoordMode to client coordinates
@@ -57,11 +57,11 @@
 
 class DPI {
 
-static StandardDpi := 96, WM_DPICHANGED := 0x02E0, MaximumPerMonitorDpiAwarenessContext := VerCompare(A_OSVersion, ">=10.0.15063") ? -4 : -3, DefaultDpiAwarenessContext := this.MaximumPerMonitorDpiAwarenessContext
+static Standard := 96, WM_DPICHANGED := 0x02E0, MaximumPerMonitorDpiAwarenessContext := VerCompare(A_OSVersion, ">=10.0.15063") ? -4 : -3, DefaultDpiAwarenessContext := this.MaximumPerMonitorDpiAwarenessContext
 
 static __New() {
     ; Set DPI awareness of our script to maximum available per-monitor by default
-    this.SetThreadDpiAwarenessContext(this.DefaultDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.DefaultDpiAwarenessContext)
     ; this.SetMaximumDPIAwareness(1) ; Also set the process DPI awareness?
 }
 
@@ -73,11 +73,11 @@ static __New() {
  * @param ExcludeText 
  * @returns {Integer} 
  */
-static WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+static GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
     /*
     ; The following only adds added complexity. GetDpiForWindow returns the correct DPI for windows that are monitor-aware. 
     ; For system-aware or unaware programs it returns the FIRST DPI the window got initialized with, so if the window is dragged
-    ; onto a second monitor then the DPI becomes invalid. Using MonitorFromWindow + GetDpiForMonitor returns the correct DPI for both aware and unaware windows.
+    ; onto a second monitor then the DPI becomes invalid. Using MonitorFromWindow + GetForMonitor returns the correct DPI for both aware and unaware windows.
     context := DllCall("GetWindowDpiAwarenessContext", "ptr", hWnd, "ptr")
     if DllCall("GetAwarenessFromDpiAwarenessContext", "ptr", context, "int") = 2 ; If window is not DPI_AWARENESS_SYSTEM_AWARE
         return DllCall("GetDpiForWindow", "ptr", hWnd, "uint")
@@ -116,14 +116,14 @@ static GetMonitorHandles() {
  * @returns {Integer} Handle to the monitor
  */
 static MonitorFromPoint(x, y, CoordMode, flags:=2) {
-    this.SetThreadDpiAwarenessContext(this.DefaultDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.DefaultDpiAwarenessContext)
     , this.FromStandardExceptCoordModeScreen(CoordMode, &X, &Y)
     , this.CoordsToScreen(&X, &Y, CoordMode, "A")
     return DllCall("MonitorFromPoint", "int64", y << 32 | (x & 0xFFFFFFFF), "int", flags, "ptr")
 }
 ; Gets a monitor from screen coordinates, no conversions done
 static MonitorFromPointRaw(x, y, flags:=2) {
-    this.SetThreadDpiAwarenessContext(this.DefaultDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.DefaultDpiAwarenessContext)
     return DllCall("MonitorFromPoint", "int64", y << 32 | (x & 0xFFFFFFFF), "int", flags, "ptr")
 }
 
@@ -151,37 +151,37 @@ static MonitorFromWindow(WinTitle?, WinText?, flags:=2, ExcludeTitle?, ExcludeTe
  *  MDT_RAW_DPI = 2 => The raw DPI. This value is the linear DPI of the screen as measured on the screen itself.
  * @returns {Integer} 
  */
-static GetDpiForMonitor(hMonitor, monitorDpiType := 0) {
+static GetForMonitor(hMonitor, monitorDpiType := 0) {
 	if !DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "UInt", monitorDpiType, "UInt*", &dpiX:=0, "UInt*", &dpiY:=0, "UInt")
 		return dpiX
 }
 
 static MouseGetPos(&OutputVarX?, &OutputVarY?, &OutputVarWin?, &OutputVarControl?, Flag?) {
-    this.SetThreadDpiAwarenessContext(this.DefaultDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.DefaultDpiAwarenessContext)
     , MouseGetPos(&OutputVarX, &OutputVarY, &OutputVarWin, &OutputVarControl, Flag?)
     , this.ToStandardExceptCoordModeScreen(A_CoordModeMouse, &OutputVarX, &OutputVarY)
 }
 
 static MouseMove(X, Y, Speed?, Relative?) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , this.FromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
     , MouseMove(X, Y, Speed?, Relative?)
 }
 
 static MouseClick(WhichButton?, X?, Y?, ClickCount?, Speed?, DownOrUp?, Relative?) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , this.FromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
     , MouseClick(WhichButton?, X?, Y?, ClickCount?, Speed?, DownOrUp?, Relative?)
 }
 
 static MouseClickDrag(WhichButton?, X1?, Y1?, X2?, Y2?, Speed?, Relative?) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , this.FromStandardExceptCoordModeScreen(A_CoordModeMouse, &X, &Y)
     , MouseClickDrag(WhichButton?, X1?, Y1?, X2?, Y2?, Speed?, Relative?)
 }
 
 static Click(Options*) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     if Options.Length > 1 && IsInteger(Options[2]) { ; Click(x, y)
         this.FromStandardExceptCoordModeScreen(A_CoordModeMouse, &X:=Options[1], &Y:=Options[2])
         , Options[1]:=X, Options[2]:=Y
@@ -196,25 +196,25 @@ static Click(Options*) {
 
 ; Useful if window is moved to another screen after getting the position and size
 static WinGetPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , WinGetPos(&X, &Y, &Width, &Height, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
-    , this.ToStandard(this.WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &Width, &Height)
+    , this.ToStandard(this.GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &Width, &Height)
 }
 
 ; Useful if window is moved to another screen after getting the position and size
 static WinGetClientPos(&X?, &Y?, &Width?, &Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , WinGetClientPos(&X, &Y, &Width, &Height, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
-    , this.ToStandard(this.WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &Width, &Height)
+    , this.ToStandard(this.GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &Width, &Height)
 }
 
 static PixelGetColor(X, Y, Mode := '') {
-    return (this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    return (this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , this.FromStandardExceptCoordModeScreen(A_CoordModePixel, &X, &Y), PixelGetColor(X, Y, Mode))
 }
 
 static PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , (out := PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?)) && this.ToStandardExceptCoordModeScreen(A_CoordModePixel, &OutputVarX, &OutputVarY)
     return out
 }
@@ -240,9 +240,9 @@ static PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?
  */
 static ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, imgDpi?, &imgW?, &imgH?) {
     static oGdip := InitGdip()
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     if !IsSet(dpi)
-        dpi := (A_CoordModePixel = "screen") ? A_ScreenDPI : this.WinGetDpi("A")
+        dpi := (A_CoordModePixel = "screen") ? A_ScreenDPI : this.GetForWindow("A")
 
     ImgPath := RegExMatch(ImageFile, "i)(?: |^)(?!\*(?:icon|trans|w|h|)[-\d]+)(.+)", &regOut:="") ? regOut[1] : ImageFile
     if !InStr(ImgPath, "\")
@@ -284,26 +284,26 @@ static ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, im
 }
 
 static ControlGetPos(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , ControlGetPos(&OutX, &OutY, &OutWidth, &OutHeight, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
-    , this.ToStandard(dpi := this.WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &OutX, &OutY)
+    , this.ToStandard(dpi := this.GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &OutX, &OutY)
     , this.ToStandard(dpi, &OutWidth, &OutHeight)
 }
 
 static ControlClick(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount?, Options?, ExcludeTitle?, ExcludeText?) {
-    this.SetThreadDpiAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     if IsSet(ControlOrPos) && ControlOrPos is String {
         if RegExMatch(ControlOrPos, "i)x\s*(\d+)\s+y\s*(\d+)", &regOut:="") {
-            this.FromStandard(this.WinGetDpi(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &x := Integer(regOut[1]), &y := Integer(regOut[2]))
+            this.FromStandard(this.GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &x := Integer(regOut[1]), &y := Integer(regOut[2]))
             ControlOrPos := "X" x " Y" y
         }
     }
     ControlClick(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount?, Options?, ExcludeTitle?, ExcludeText?)
 }
 
-; Takes a GUI options string and converts all coordinates from fromDpi (default: DPI.StandardDpi) to targetDpi
+; Takes a GUI options string and converts all coordinates from fromDpi (default: DPI.Standard) to targetDpi
 ; Original author: user hi5, https://autohotkey.com/boards/viewtopic.php?f=6&t=37913
-static GuiOptScale(opt, targetDpi, fromDpi := this.StandardDpi) {
+static GuiOptScale(opt, targetDpi, fromDpi := this.Standard) {
     out := ""
     Loop Parse, opt, A_Space A_Tab {
         if RegExMatch(A_LoopField,"i)(w0|h0|h-1|xp|yp|xs|ys|xm|ym)$|(icon|hwnd)") ; these need to be bypassed
@@ -316,14 +316,14 @@ static GuiOptScale(opt, targetDpi, fromDpi := this.StandardDpi) {
     Return Trim(out)
 }
 
-static ToStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) => (CoordMode = "screen" || this.ToStandard(this.WinGetDpi("A"), &OutputVarX, &OutputVarY))
-static FromStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) => (CoordMode = "screen" || this.FromStandard(this.WinGetDpi("A"), &OutputVarX, &OutputVarY))
+static ToStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) => (CoordMode = "screen" || this.ToStandard(this.GetForWindow("A"), &OutputVarX, &OutputVarY))
+static FromStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) => (CoordMode = "screen" || this.FromStandard(this.GetForWindow("A"), &OutputVarX, &OutputVarY))
 static ConvertCoord(&coord, from, to) => ((IsNumber(coord) && coord := DllCall("MulDiv", "int", coord, "int", to, "int", from, "int")) || coord)
 
 ; Convert a point from standard to desired DPI, or vice-versa
-static FromStandard(dpi, &x, &y) => (IsInteger(x) && DllCall("MulDiv", "int", x, "int", dpi, "int", this.StandardDpi, "int"), IsInteger(y) && DllCall("MulDiv", "int", y, "int", dpi, "int", this.StandardDpi, "int"))
-static ToStandard(dpi, &x, &y) => (IsInteger(x) && DllCall("MulDiv", "int", x, "int", this.StandardDpi, "int", dpi, "int"), IsInteger(y) && DllCall("MulDiv", "int", y, "int", this.StandardDpi, "int", dpi, "int"))
-static ScaleFactorFromDpi(dpi) => Round(dpi / 96, 2)
+static FromStandard(dpi, &x, &y) => (IsInteger(x) && DllCall("MulDiv", "int", x, "int", dpi, "int", this.Standard, "int"), IsInteger(y) && DllCall("MulDiv", "int", y, "int", dpi, "int", this.Standard, "int"))
+static ToStandard(dpi, &x, &y) => (IsInteger(x) && DllCall("MulDiv", "int", x, "int", this.Standard, "int", dpi, "int"), IsInteger(y) && DllCall("MulDiv", "int", y, "int", this.Standard, "int", dpi, "int"))
+static GetScaleFactor(dpi) => Round(dpi / 96, 2)
 
 /**
  * Returns one of the following:
@@ -333,7 +333,7 @@ static ScaleFactorFromDpi(dpi) => Round(dpi / 96, 2)
  * DPI_AWARENESS_PER_MONITOR_AWARE = 2
  * @returns {Integer} 
  */
-static GetScriptDpiAwareness() => DllCall("GetAwarenessFromDpiAwarenessContext", "ptr", DllCall("GetThreadDpiAwarenessContext", "ptr"), "int")
+static GetScriptAwareness() => DllCall("GetAwarenessFromDpiAwarenessContext", "ptr", DllCall("GetThreadDpiAwarenessContext", "ptr"), "int")
 
 /**
  * Uses DPI.SetThreadDpiAwarenessContext to set the running scripts' DPI awareness. Returns the previous context, but not in the same format as the
@@ -348,12 +348,12 @@ static GetScriptDpiAwareness() => DllCall("GetAwarenessFromDpiAwarenessContext",
  *  -5: DPI unaware with improved quality of GDI-based content. 
  * @returns {Integer}  
  */
-static SetThreadDpiAwarenessContext(context) => DllCall("SetThreadDpiAwarenessContext", "ptr", context, "ptr")
-static SetProcessDpiAwarenessContext(context) => DllCall("SetProcessDpiAwarenessContext", "ptr", context, "ptr")
+static SetThreadAwarenessContext(context) => DllCall("SetThreadDpiAwarenessContext", "ptr", context, "ptr")
+static SetProcessAwarenessContext(context) => DllCall("SetProcessDpiAwarenessContext", "ptr", context, "ptr")
 
 ; Converts coordinates to screen coordinates depending on provided CoordMode and window
 static CoordsToScreen(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    this.SetThreadDpiAwarenessContext(this.DefaultDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.DefaultDpiAwarenessContext)
     if CoordMode = "screen" {
         return
     } else if CoordMode = "client" {
@@ -364,7 +364,7 @@ static CoordsToScreen(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, Exc
 }
 ; Converts coordinates to client coordinates depending on provided CoordMode and window
 static CoordsToClient(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    this.SetThreadDpiAwarenessContext(this.DefaultDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.DefaultDpiAwarenessContext)
     if CoordMode = "screen" {
         this.ScreenToClient(&X, &Y, WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?))
     } else if CoordMode = "client" {
@@ -375,7 +375,7 @@ static CoordsToClient(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, Exc
 }
 ; Converts coordinates to window coordinates depending on provided CoordMode and window
 static CoordsToWindow(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    this.SetThreadDpiAwarenessContext(this.DefaultDpiAwarenessContext)
+    this.SetThreadAwarenessContext(this.DefaultDpiAwarenessContext)
     if CoordMode = "screen" {
         this.ScreenToWindow(&X, &Y, WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?))
     } else if CoordMode = "client" {
