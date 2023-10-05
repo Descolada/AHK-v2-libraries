@@ -321,8 +321,8 @@ static FromStandardExceptCoordModeScreen(CoordMode, &OutputVarX, &OutputVarY) =>
 static ConvertCoord(&coord, from, to) => ((IsNumber(coord) && coord := DllCall("MulDiv", "int", coord, "int", to, "int", from, "int")) || coord)
 
 ; Convert a point from standard to desired DPI, or vice-versa
-static FromStandard(dpi, &x, &y) => (IsInteger(x) && DllCall("MulDiv", "int", x, "int", dpi, "int", this.Standard, "int"), IsInteger(y) && DllCall("MulDiv", "int", y, "int", dpi, "int", this.Standard, "int"))
-static ToStandard(dpi, &x, &y) => (IsInteger(x) && DllCall("MulDiv", "int", x, "int", this.Standard, "int", dpi, "int"), IsInteger(y) && DllCall("MulDiv", "int", y, "int", this.Standard, "int", dpi, "int"))
+static FromStandard(dpi, &x, &y) => (IsInteger(x) && x := DllCall("MulDiv", "int", x, "int", dpi, "int", this.Standard, "int"), IsInteger(y) && y := DllCall("MulDiv", "int", y, "int", dpi, "int", this.Standard, "int"))
+static ToStandard(dpi, &x, &y) => (IsInteger(x) && x := DllCall("MulDiv", "int", x, "int", this.Standard, "int", dpi, "int"), IsInteger(y) && y := DllCall("MulDiv", "int", y, "int", this.Standard, "int", dpi, "int"))
 static GetScaleFactor(dpi) => Round(dpi / 96, 2)
 
 /**
