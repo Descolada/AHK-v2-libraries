@@ -128,7 +128,7 @@ TryUpdate() {
     MouseGetPos &mcX, &mcY
     mClr := PixelGetColor(msX,msY,"RGB")
 
-    if oGui["Ctrl_DPIAware"].Value {
+    if oGui["Ctrl_DPINormalized"].Value {
         wDpi := WinGetDpi("ahk_id " curWin)
         DpiToStandard(wDpi, &mrX, &mrY), DpiToStandard(wDpi, &mcX, &mcY)
     }
