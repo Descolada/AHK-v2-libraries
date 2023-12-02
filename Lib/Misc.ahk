@@ -181,44 +181,88 @@ RegExMatchAll(haystack, needleRegEx, startingPosition := 1) {
 }
 
 /**
- * Highlights an area with a colorful border.
+ * Highlights an area with a colorful border. If called without arguments then all highlightings
+ * are removed. This function also supports named parameters.
  * @param x Screen X-coordinate of the top left corner of the highlight
  * @param y Screen Y-coordinate of the top left corner of the highlight
  * @param w Width of the highlight
  * @param h Height of the highlight
  * @param showTime Can be one of the following:
- *     0 - removes the highlighting
- *     Positive integer (eg 2000) - will highlight and pause for the specified amount of time in ms
- *     Negative integer - will highlight for the specified amount of time in ms, but script execution will continue
+ * * Unset - if highlighting exists then removes the highlighting, otherwise highlights for 2 seconds. This is the default value.
+ * * 0 - Indefinite highlighting 
+ * * Positive integer (eg 2000) - will highlight and pause for the specified amount of time in ms
+ * * Negative integer - will highlight for the specified amount of time in ms, but script execution will continue
+ * * "clear" - removes the highlighting unconditionally
  * @param color The color of the highlighting. Default is red.
  * @param d The border thickness of the highlighting in pixels. Default is 2.
  */
-Highlight(x?, y?, w?, h?, showTime:=0, color:="Red", d:=2) {
-	static guis := []
-	if !IsSet(x) {
-        for _, r in guis
-            r.Destroy()
-        guis := []
+Highlight(x?, y?, w?, h?, showTime?, color:="Red", d:=2) {
+	static guis := Map(), timers := Map()
+	if IsSet(x) { ; if x is set then check whether a highlight already exists at those coords
+		if IsObject(x) {
+			d := x.HasOwnProp("d") ? x.d : d, color := x.HasOwnProp("color") ? x.color : color, showTime := x.HasOwnProp("showTime") ? x.showTime : showTime
+			, h := x.HasOwnProp("h") ? x.h : h, w := x.HasOwnProp("w") ? x.w : h, y := x.HasOwnProp("y") ? x.y : y, x := x.HasOwnProp("x") ? x.x : unset
+		}
+		if !(IsSet(x) && IsSet(y) && IsSet(w) && IsSet(h))
+			throw ValueError("x, y, w and h arguments must all be provided for a highlight", -1)
+		for k, v in guis {
+			if k.x = x && k.y = y && k.w = w && k.h = h { ; highlight exists, so either remove it, or update
+				if !IsSet(showTime) || (IsSet(showTime) && showTime = "clear")
+					TryRemoveTimer(k), TryDeleteGui(k)
+				else if showTime = 0
+					TryRemoveTimer(k)
+				else if IsInteger(showTime) {
+					if showTime < 0 {
+						if !timers.Has(k)
+							timers[k] := Highlight.Bind(x,y,w,h)
+						SetTimer(timers[k], showTime)
+					} else {
+						TryRemoveTimer(k)
+						Sleep showTime
+						TryDeleteGui(k)
+					}
+				} else
+					throw ValueError('Invalid showTime value "' (!IsSet(showTime) ? "unset" : IsObject(showTime) ? "{Object}" : showTime) '"', -1)
+				return
+			}
+		}
+	} else { ; if x is not set (eg Highlight()) then delete all highlights
+		for k, v in timers
+			SetTimer(v, 0)
+		for k, v in guis
+			v.Destroy()
+		guis := Map(), timers := Map()
 		return
-    }
-    if !guis.Length {
-        Loop 4
-            guis.Push(Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +E0x08000000"))
-    }
-	Loop 4 {
-		i:=A_Index
-		, x1:=(i=2 ? x+w : x-d)
-		, y1:=(i=3 ? y+h : y-d)
-		, w1:=(i=1 or i=3 ? w+2*d : d)
-		, h1:=(i=2 or i=4 ? h+2*d : d)
-		guis[i].BackColor := color
-		guis[i].Show("NA x" . x1 . " y" . y1 . " w" . w1 . " h" . h1)
 	}
+	
+	if (showTime := showTime ?? 2000) = "clear"
+		return
+	else if !IsInteger(showTime)
+		throw ValueError('Invalid showTime value "' (!IsSet(showTime) ? "unset" : IsObject(showTime) ? "{Object}" : showTime) '"', -1)
+
+	; Otherwise this is a new highlight
+	loc := {x:x, y:y, w:w, h:h}
+	guis[loc] := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +E0x08000000")
+	GuiObj := guis[loc]
+	GuiObj.BackColor := color
+	iw:= w+d, ih:= h+d, w:=w+d*2, h:=h+d*2, x:=x-d, y:=y-d
+	WinSetRegion("0-0 " w "-0 " w "-" h " 0-" h " 0-0 " d "-" d " " iw "-" d " " iw "-" ih " " d "-" ih " " d "-" d, GuiObj.Hwnd)
+	GuiObj.Show("NA x" . x . " y" . y . " w" . w . " h" . h)
+
 	if showTime > 0 {
 		Sleep(showTime)
-		Highlight()
+		TryDeleteGui(loc)
 	} else if showTime < 0
-		SetTimer(Highlight, -Abs(showTime))
+		SetTimer(timers[loc] := Highlight.Bind(loc.x,loc.y,loc.w,loc.h), showTime)
+
+	TryRemoveTimer(key) {
+		if timers.Has(key)
+			SetTimer(timers[key], 0), timers.Delete(key)
+	}
+	TryDeleteGui(key) {
+		if guis.Has(key)
+			guis[key].Destroy(), guis.Delete(key)
+	}
 }
 
 /**
