@@ -3,4 +3,4 @@
 #include ImagePut.ahk ; Download here: https://github.com/iseahound/ImagePut
 
 thumbnail := Media.GetCurrentSession().Thumbnail
-ImagePutClipboard(thumbnail.ptr) ; Copies the thumbnail to the clipboard
+ImagePutClipboard(thumbnail) ; Copies the thumbnail to the clipboard
