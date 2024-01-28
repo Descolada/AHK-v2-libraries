@@ -69,6 +69,7 @@ class ArrayTestSuite {
         DUnit.Throws(ObjBindMethod(["a",1,3,2], "Sort", "X")) ; Invalid option
         DUnit.Equal(["a", 2, 1.2, 1.22, 1.20].Sort("C"), [1.2, 1.2, 1.22, 2, 'a'])
         DUnit.Equal(["c", "b", "a", "C", "F", "A"].Sort("C"), ['A', 'C', 'F', 'a', 'b', 'c'])
+        DUnit.Equal(["0.0", "-0.08", "-0.16", "-0.34"].Sort(), ["-0.34", "-0.16", "-0.08", "0.0"])
         arr := [1,2,3,4,5]
         firstProbabilities := [0,0,0,0,0], lastProbabilities := [0,0,0,0,0]
         Loop 1000 {
@@ -88,6 +89,13 @@ class ArrayTestSuite {
         myImmovables.push({town: "Tokyo", size: "90", price: 600000, balcony: 2})
         myImmovables.push({town: "Palma de Mallorca", size: "250", price: 1100000, balcony: 3})
         DUnit.Equal(myImmovables.Sort("N R", "size"), [{balcony:3, price:1100000, size:'250', town:'Palma de Mallorca'}, {balcony:2, price:600000, size:'90', town:'Tokyo'}, {balcony:0, price:350000, size:'80', town:'Moscow'}, {balcony:1, price:400000, size:'60', town:'New York'}, {balcony:1, price:230000, size:'45', town:'Berlin'}])
+        myImmovables:=[]
+        myImmovables.push(Map("town", "New York", "size", "60", "price", 400000, "balcony", 1))
+        myImmovables.push(Map("town", "Berlin", "size", "45", "price", 230000, "balcony", 1))
+        myImmovables.push(Map("town", "Moscow", "size", "80", "price", 350000, "balcony", 0))
+        myImmovables.push(Map("town", "Tokyo", "size", "90", "price", 600000, "balcony", 2))
+        myImmovables.push(Map("town", "Palma de Mallorca", "size", "250", "price", 1100000, "balcony", 3))
+        DUnit.Equal(myImmovables.Sort("N R", "size"), [Map("town", "Palma de Mallorca", "size", "250", "price", 1100000, "balcony", 3), Map("town", "Tokyo", "size", "90", "price", 600000, "balcony", 2), Map("town", "Moscow", "size", "80", "price", 350000, "balcony", 0), Map("town", "New York", "size", "60", "price", 400000, "balcony", 1), Map("town", "Berlin", "size", "45", "price", 230000, "balcony", 1)])
     }
     Test_Shuffle() {
         DUnit.Equal([].Shuffle(), [])
