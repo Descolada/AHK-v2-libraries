@@ -3,7 +3,7 @@
 /**
  * The WinEvent class can monitor window events for all windows or specific windows.
  * Currently the following events are supported: Show, Create, Close, Active, NotActive, Move, 
- * MoveStart, MoveEnd, Minimize, Maximize. See comments for the functions for more information.
+ * MoveStart, MoveEnd, Minimize, Restore, Maximize. See comments for the functions for more information.
  */
 class WinEvent {
     ; A curated list of event enumerations
