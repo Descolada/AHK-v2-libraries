@@ -19,6 +19,8 @@
 	WindowFromPoint(X, Y) 			=> Returns the window ID at screen coordinates X and Y.
 	ConvertWinPos(X, Y, &outX, &outY, relativeFrom:=A_CoordModeMouse, relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?)
 		Converts coordinates between screen, window and client.
+	WinGetInfo(WinTitle:="", Verbose := 1, WinText:="", ExcludeTitle:="", ExcludeText:="", Separator := "`n")
+		Gets info about a window (title, process name, location etc).
 	GetCaretPos(&X?, &Y?, &W?, &H?)
 		Gets the position of the caret with CaretGetPos, Acc or UIA.
 	IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2)
@@ -345,6 +347,128 @@ ConvertWinPos(X, Y, &outX, &outY, relativeFrom:="", relativeTo:="screen", winTit
 				outX -= NumGet(RECT, 0, "Int"), outY -= NumGet(RECT, 4, "Int")
 			}
 	}
+}
+
+/**
+ * Gets info about a window (title, process name, location etc)
+ * @param WinTitle Same as AHK WinTitle
+ * @param {number} Verbose How verbose the output should be (default is 1):
+ *  0: Returns window title, hWnd, class, process name, PID, process path, screen position, min-max info, styles and ex-styles
+ *  1: Additionally returns TransColor, transparency level, text (both hidden and not), statusbar text
+ *  2: Additionally returns ClassNN names for all controls
+ * @param WinText Same as AHK WinText
+ * @param ExcludeTitle Same as AHK ExcludeTitle
+ * @param ExcludeText Same as AHK ExcludeText
+ * @param {string} Separator Linebreak character(s)
+ * @returns {string} The info as a string. 
+ * @example MsgBox(WinGetInfo("ahk_exe notepad.exe", 2))
+ */
+WinGetInfo(WinTitle:="", Verbose := 1, WinText:="", ExcludeTitle:="", ExcludeText:="", Separator := "`n") {
+    if !(hWnd := WinExist(WinTitle, WinText, ExcludeTitle, ExcludeText))
+        throw TargetError("Target window not found!", -1)
+    out := 'Title: '
+    try out .= '"' WinGetTitle(hWnd) '"' Separator
+    catch
+        out .= "#ERROR" Separator
+    out .=  'ahk_id ' hWnd Separator
+    out .= 'ahk_class '
+    try out .= WinGetClass(hWnd) Separator
+    catch
+        out .= "#ERROR" Separator
+    out .= 'ahk_exe '
+    try out .= WinGetProcessName(hWnd) Separator
+    catch
+        out .= "#ERROR" Separator
+    out .= 'ahk_pid '
+    try out .= WinGetPID(hWnd) Separator
+    catch
+        out .= "#ERROR" Separator
+    out .= 'ProcessPath: '
+    try out .= '"' WinGetProcessPath(hWnd) '"' Separator
+    catch
+        out .= "#ERROR" Separator
+    out .= 'Screen position: '
+    try { 
+        WinGetPos(&X, &Y, &W, &H, hWnd)
+        out .= "x: " X " y: " Y " w: " W " h: " H Separator
+    } catch
+        out .= "#ERROR" Separator
+    out .= 'MinMax: '
+    try out .= ((minmax := WinGetMinMax(hWnd)) = 1 ? "maximized" : minmax = -1 ? "minimized" : "normal") Separator
+    catch
+        out .= "#ERROR" Separator
+
+    static Styles := Map("WS_OVERLAPPED", 0x00000000, "WS_POPUP", 0x80000000, "WS_CHILD", 0x40000000, "WS_MINIMIZE", 0x20000000, "WS_VISIBLE", 0x10000000, "WS_DISABLED", 0x08000000, "WS_CLIPSIBLINGS", 0x04000000, "WS_CLIPCHILDREN", 0x02000000, "WS_MAXIMIZE", 0x01000000, "WS_CAPTION", 0x00C00000, "WS_BORDER", 0x00800000, "WS_DLGFRAME", 0x00400000, "WS_VSCROLL", 0x00200000, "WS_HSCROLL", 0x00100000, "WS_SYSMENU", 0x00080000, "WS_THICKFRAME", 0x00040000, "WS_GROUP", 0x00020000, "WS_TABSTOP", 0x00010000, "WS_MINIMIZEBOX", 0x00020000, "WS_MAXIMIZEBOX", 0x00010000, "WS_TILED", 0x00000000, "WS_ICONIC", 0x20000000, "WS_SIZEBOX", 0x00040000, "WS_OVERLAPPEDWINDOW", 0x00CF0000, "WS_POPUPWINDOW", 0x80880000, "WS_CHILDWINDOW", 0x40000000, "WS_TILEDWINDOW", 0x00CF0000, "WS_ACTIVECAPTION", 0x00000001, "WS_GT", 0x00030000)
+    , ExStyles := Map("WS_EX_DLGMODALFRAME", 0x00000001, "WS_EX_NOPARENTNOTIFY", 0x00000004, "WS_EX_TOPMOST", 0x00000008, "WS_EX_ACCEPTFILES", 0x00000010, "WS_EX_TRANSPARENT", 0x00000020, "WS_EX_MDICHILD", 0x00000040, "WS_EX_TOOLWINDOW", 0x00000080, "WS_EX_WINDOWEDGE", 0x00000100, "WS_EX_CLIENTEDGE", 0x00000200, "WS_EX_CONTEXTHELP", 0x00000400, "WS_EX_RIGHT", 0x00001000, "WS_EX_LEFT", 0x00000000, "WS_EX_RTLREADING", 0x00002000, "WS_EX_LTRREADING", 0x00000000, "WS_EX_LEFTSCROLLBAR", 0x00004000, "WS_EX_CONTROLPARENT", 0x00010000, "WS_EX_STATICEDGE", 0x00020000, "WS_EX_APPWINDOW", 0x00040000, "WS_EX_OVERLAPPEDWINDOW", 0x00000300, "WS_EX_PALETTEWINDOW", 0x00000188, "WS_EX_LAYERED", 0x00080000, "WS_EX_NOINHERITLAYOUT", 0x00100000, "WS_EX_NOREDIRECTIONBITMAP", 0x00200000, "WS_EX_LAYOUTRTL", 0x00400000, "WS_EX_COMPOSITED", 0x02000000, "WS_EX_NOACTIVATE", 0x08000000)
+    out .= 'Style: '
+    try {
+        out .= (style := WinGetStyle(hWnd)) " ("
+        for k, v in Styles {
+            if v && style & v {
+                out .= k " | "
+                style &= ~v
+            }
+        }
+        out := RTrim(out, " |")
+        if style
+            out .= (SubStr(out, -1, 1) = "(" ? "" : ", ") "Unknown enum: " style
+        out .= ")" Separator
+    } catch
+        out .= "#ERROR" Separator
+
+        out .= 'ExStyle: '
+        try {
+            out .= (style := WinGetExStyle(hWnd)) " ("
+            for k, v in ExStyles {
+                if v && style & v {
+                    out .= k " | "
+                    style &= ~v
+                }
+            }
+            out := RTrim(out, " |")
+            if style
+                out .= (SubStr(out, -1, 1) = "(" ? "" : ", ") "Unknown enum: " style
+            out .= ")" Separator
+        } catch
+            out .= "#ERROR" Separator
+
+    
+    if Verbose {
+        out .= 'TransColor: '
+        try out .= WinGetTransColor(hWnd) Separator
+        catch
+            out .= "#ERROR" Separator
+        out .= 'Transparent: '
+        try out .= WinGetTransparent(hWnd) Separator
+        catch
+            out .= "#ERROR" Separator
+
+        PrevDHW := DetectHiddenText(0)
+        out .= 'Text (DetectHiddenText Off): '
+        try out .= '"' WinGetText(hWnd) '"' Separator
+        catch
+            out .= "#ERROR" Separator
+        DetectHiddenText(1)
+        out .= 'Text (DetectHiddenText On): '
+        try out .= '"' WinGetText(hWnd) '"' Separator
+        catch
+            out .= "#ERROR" Separator
+        DetectHiddenText(PrevDHW)
+
+        out .= 'StatusBar Text: '
+        try out .= '"' StatusBarGetText(1, hWnd) '"' Separator
+        catch
+            out .= "#ERROR" Separator
+    }
+    if Verbose > 1 {
+        out .= 'Controls (ClassNN): ' Separator
+        try {
+            for ctrl in WinGetControls(hWnd)
+                out .= '`t' ctrl Separator
+        } catch
+            out .= "#ERROR" Separator
+    }
+    return SubStr(out, 1, -StrLen(Separator))
 }
 
 /**
