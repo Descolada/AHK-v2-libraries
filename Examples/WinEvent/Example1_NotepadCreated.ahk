@@ -7,10 +7,10 @@
 ; are some other hidden windows created as well that match "ahk_exe notepad.exe" which we don't want
 ; to capture. In the case of Notepad we could use "ahk_class Notepad ahk_exe notepad.exe" to filter
 ; for the main window, but that method isn't generalizable, so WinEvent.Show is a safer option.
-hook := WinEvent.Show(NotepadCreated, "ahk_class Notepad ahk_exe notepad.exe")
+WinEvent.Show(NotepadCreated, "ahk_class Notepad ahk_exe notepad.exe")
 Persistent()
 
-NotepadCreated(hWnd, dwmsEventTime) {
+NotepadCreated(hook, hWnd, dwmsEventTime) {
     ToolTip "Notepad was created at " dwmsEventTime ", hWnd " hWnd "`n"
     SetTimer ToolTip, -3000
 }

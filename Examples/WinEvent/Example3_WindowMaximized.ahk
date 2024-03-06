@@ -2,12 +2,12 @@
 #include ..\..\Lib\WinEvent.ahk
 
 ; Detects when any window is maximized
-hook := WinEvent.Maximize(WindowMaximizedEvent)
+WinEvent.Maximize(WindowMaximizedEvent)
 Persistent()
 
-WindowMaximizedEvent(hWnd, dwmsEventTime) {
-    ToolTip "A window was maximized at " dwmsEventTime ", hWnd " hWnd "`n"
-    SetTimer ToolTip, -3000
+WindowMaximizedEvent(hook, hWnd, dwmsEventTime) {
+    if MsgBox("A window was maximized at " dwmsEventTime ", hWnd " hWnd "`n`nStop hook?",, 0x4) = "Yes"
+        hook.Stop()
 }
 
 F1::Run("notepad.exe")
