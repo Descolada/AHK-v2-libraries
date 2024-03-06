@@ -21,7 +21,7 @@ class WinEvent {
 
     /**
      * The following functions activate a WinEvent hook, which when activated calls a callback function
-     *  Callback(hWnd, dwmsEventTime)
+     *  Callback(HookObject, hWnd, dwmsEventTime)
      *      hWnd: the window handle that triggered the event
      *      dwmsEventTime: the A_TickCount for when the event happened
      * 
@@ -225,7 +225,7 @@ class WinEvent {
                 goto Cleanup
             for MatchCriteria, HookObj in this.__RegisteredEvents["Close"] {
                 if HookObj.MatchingWinList.Has(hWnd)
-                    HookObj.__ActivateCallback(hWnd, dwmsEventTime)
+                    HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
                 HookObj.__UpdateMatchingWinList()
             }
             this.__UpdateWinList()
@@ -244,7 +244,7 @@ class WinEvent {
                 if WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4]) {
                     if WinGetMinMax(hWnd) != 1
                         continue
-                    HookObj.__ActivateCallback(hWnd, dwmsEventTime)
+                    HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
                 }
             }
         } 
@@ -258,13 +258,13 @@ class WinEvent {
             || (event = EVENT_SYSTEM_FOREGROUND && EventName := "Active")) && this.__RegisteredEvents.Has(EventName) {
             for MatchCriteria, HookObj in this.__RegisteredEvents[EventName] {
                 if exist := WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])
-                    HookObj.__ActivateCallback(hWnd, dwmsEventTime)
+                    HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
             }
         } 
         if (event = EVENT_SYSTEM_FOREGROUND && this.__RegisteredEvents.Has("NotActive")) {
             for MatchCriteria, HookObj in this.__RegisteredEvents["NotActive"] {
                 try if HookObj.IsActive && !WinActive(MatchCriteria*) {
-                    HookObj.__ActivateCallback(HookObj.IsActive, dwmsEventTime)
+                    HookObj.__ActivateCallback(HookObj, HookObj.IsActive, dwmsEventTime)
                     HookObj.IsActive := 0
                 }
                 if WinActive(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])
