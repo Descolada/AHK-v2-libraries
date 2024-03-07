@@ -21,7 +21,7 @@ class WinEvent {
 
     /**
      * When a window is shown
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -32,7 +32,7 @@ class WinEvent {
 
     /**
      * When a window is created, but not necessarily shown
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -43,7 +43,7 @@ class WinEvent {
     
     /**
      * When a window is destroyed/closed
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -54,7 +54,7 @@ class WinEvent {
 
     /**
      * When a window is activated/focused
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -65,7 +65,7 @@ class WinEvent {
 
     /**
      * When a window is inactivated/unfocused
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -76,7 +76,7 @@ class WinEvent {
 
     /**
      * When a window is moved or resized
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -87,7 +87,7 @@ class WinEvent {
 
     /**
      * When a window is starting to be moved or resized
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -98,7 +98,7 @@ class WinEvent {
 
     /**
      * When a window has been moved or resized
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -109,7 +109,7 @@ class WinEvent {
 
     /**
      * When a window is minimized
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -120,7 +120,7 @@ class WinEvent {
 
     /**
      * When a window is restored
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -131,7 +131,7 @@ class WinEvent {
 
     /**
      * When a window is maximized
-     * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -156,6 +156,7 @@ class WinEvent {
             if MatchCriteria[1] = WinTitle && MatchCriteria[2] = WinText && MatchCriteria[3] = ExcludeTitle && MatchCriteria[4] = ExcludeText
                 EventObj.Stop()
     }
+
     ; Checks whether an event is active
     static IsActive(EventType, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") {
         if !this.__RegisteredEvents.Has(EventType)
@@ -175,20 +176,19 @@ class WinEvent {
         /**
          * Sets a new event hook using SetWinEventHook and returns on object describing the hook. 
          * When the object is released, the hook is also released.
-         * @param callbackFunc The function that will be called, which needs to accept 7 arguments:  
-         *    `hWinEventHook`, `event`, `hwnd`, `idObject`, `idChild`, `idEventThread`, `dwmsEventTime`
-         * @param eventMin Optional: Specifies the event constant for the lowest event value in the range of events that are handled by the hook function.  
+         * @param {(hWinEventHook, event, hwnd, idObject, idChild, idEventThread, dwmsEventTime) => Integer} callbackFunc The function that will be called, which needs to accept 7 arguments.
+         * @param {Integer} [eventMin] Optional: Specifies the event constant for the lowest event value in the range of events that are handled by the hook function.  
          *  Default is the lowest possible event value.  
          * - See more about [event constants](https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants)
          * - [Msaa Events List](Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd318066(V=Vs.85).Aspx)
          * - [System-Level And Object-Level Events](Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373657(V=Vs.85).Aspx)
          * - [Console Accessibility](Https://Msdn.Microsoft.Com/En-Us/Library/Ms971319.Aspx)
-         * @param eventMax Optional: Specifies the event constant for the highest event value in the range of events that are handled by the hook function.
+         * @param {Integer} [eventMax] Optional: Specifies the event constant for the highest event value in the range of events that are handled by the hook function.
          *  If eventMin is omitted then the default is the highest possible event value.
          *  If eventMin is specified then the default is eventMin.
-         * @param [winTitle=0] Optional: WinTitle of a certain window to hook to. Default is system-wide hook.
-         * @param [PID=0] Optional: process ID of the process for which threads to hook to. Default is system-wide hook.
-         * @param [flags=0x0002] Flag values that specify the location of the hook function and of the events to be skipped.
+         * @param {Integer|String} [winTitle=0] Optional: WinTitle of a certain window to hook to. Default is system-wide hook.
+         * @param {Integer} [PID=0] Optional: process ID of the process for which threads to hook to. Default is system-wide hook.
+         * @param {Integer} [flags=0x0002] Flag values that specify the location of the hook function and of the events to be skipped.
          *  Default is `WINEVENT_OUTOFCONTEXT` = 0 and `WINEVENT_SKIPOWNPROCESS` = 2. 
          * @returns {WinEventHook} 
          */
@@ -291,11 +291,8 @@ class WinEvent {
     ; Internal use: handles the event called by SetWinEventHook. 
     static __HandleWinEvent(hWinEventHook, event, hwnd, idObject, idChild, idEventThread, dwmsEventTime) {
         Critical -1
-        static OBJID_WINDOW := 0, INDEXID_CONTAINER := 0, EVENT_OBJECT_CREATE := 0x8000, 
-            EVENT_OBJECT_DESTROY := 0x8001, EVENT_OBJECT_SHOW := 0x8002, EVENT_OBJECT_FOCUS := 0x8005,
-            EVENT_OBJECT_LOCATIONCHANGE := 0x800B, EVENT_SYSTEM_MINIMIZESTART := 0x0016, EVENT_SYSTEM_MINIMIZEEND := 0x0017,
-            EVENT_SYSTEM_MOVESIZESTART := 0x000A, EVENT_SYSTEM_MOVESIZEEND := 0x000B, EVENT_SYSTEM_FOREGROUND := 0x0003,
-            EVENT_OBJECT_NAMECHANGE := 0x800C ; These are duplicated here for performance reasons
+        static OBJID_WINDOW := 0, INDEXID_CONTAINER := 0, EVENT_OBJECT_CREATE := 0x8000, EVENT_OBJECT_DESTROY := 0x8001, EVENT_OBJECT_SHOW := 0x8002, EVENT_OBJECT_FOCUS := 0x8005, EVENT_OBJECT_LOCATIONCHANGE := 0x800B, EVENT_SYSTEM_MINIMIZESTART := 0x0016, EVENT_SYSTEM_MINIMIZEEND := 0x0017, EVENT_SYSTEM_MOVESIZESTART := 0x000A, EVENT_SYSTEM_MOVESIZEEND := 0x000B, EVENT_SYSTEM_FOREGROUND := 0x0003, EVENT_OBJECT_NAMECHANGE := 0x800C ; These are duplicated here for performance reasons
+
         local PrevDHW := DetectHiddenWindows(1), HookObj, MatchCriteria
         idObject := idObject << 32 >> 32, idChild := idChild << 32 >> 32, event &= 0xFFFFFFFF, idEventThread &= 0xFFFFFFFF, dwmsEventTime &= 0xFFFFFFFF ; convert to INT/UINT
 
