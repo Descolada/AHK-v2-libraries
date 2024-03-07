@@ -20,16 +20,6 @@ class WinEvent {
            EVENT_OBJECT_NAMECHANGE     := 0x800C
 
     /**
-     * @prop Show
-     * @prop Create
-     * The following functions activate a WinEvent hook, which when activated calls a callback function
-     *  `Callback(HookObject, hWnd, dwmsEventTime)`
-
-     * 
-     * 
-     */
-
-    /**
      * When a window is shown
      * @param {Callback(HookObject, hWnd, dwmsEventTime) => Interger} Callback
      * - `hWnd`         : the window handle that triggered the event
