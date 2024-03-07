@@ -1,67 +1,145 @@
 #Requires AutoHotkey v2
 
 /**
- * The WinEvent class can monitor window events for all windows or specific windows.
- * Currently the following events are supported: Show, Create, Close, Active, NotActive, Move, 
- * MoveStart, MoveEnd, Minimize, Restore, Maximize. See comments for the functions for more information.
+ * The WinEvent class can monitor window events for all windows or specific windows.  
+ * Currently the following events are supported: `Show`, `Create`, `Close`, `Active`, `NotActive`, `Move`, 
+ * `MoveStart`, `MoveEnd`, `Minimize`, `Restore`, `Maximize`. See comments for the functions for more information.
  */
 class WinEvent {
     ; A curated list of event enumerations
-    static  EVENT_OBJECT_CREATE := 0x8000, 
-            EVENT_OBJECT_DESTROY := 0x8001, 
-            EVENT_OBJECT_SHOW := 0x8002,
-            EVENT_OBJECT_FOCUS := 0x8005,
-            EVENT_OBJECT_LOCATIONCHANGE := 0x800B,
-            EVENT_SYSTEM_MINIMIZESTART := 0x0016,
-            EVENT_SYSTEM_MINIMIZEEND := 0x0017,
-            EVENT_SYSTEM_MOVESIZESTART := 0x000A,
-            EVENT_SYSTEM_MOVESIZEEND := 0x000B,
-            EVENT_SYSTEM_FOREGROUND := 0x0003,
-            EVENT_OBJECT_NAMECHANGE := 0x800C
+    static EVENT_OBJECT_CREATE         := 0x8000,
+           EVENT_OBJECT_DESTROY        := 0x8001,
+           EVENT_OBJECT_SHOW           := 0x8002,
+           EVENT_OBJECT_FOCUS          := 0x8005,
+           EVENT_OBJECT_LOCATIONCHANGE := 0x800B,
+           EVENT_SYSTEM_MINIMIZESTART  := 0x0016,
+           EVENT_SYSTEM_MINIMIZEEND    := 0x0017,
+           EVENT_SYSTEM_MOVESIZESTART  := 0x000A,
+           EVENT_SYSTEM_MOVESIZEEND    := 0x000B,
+           EVENT_SYSTEM_FOREGROUND     := 0x0003,
+           EVENT_OBJECT_NAMECHANGE     := 0x800C
 
     /**
-     * The following functions activate a WinEvent hook, which when activated calls a callback function
-     *  Callback(HookObject, hWnd, dwmsEventTime)
-     *      hWnd: the window handle that triggered the event
-     *      dwmsEventTime: the A_TickCount for when the event happened
-     * 
-     * The Count argument limits the number of times the callback will be called (eg for a one-time
-     * event set Count to 1).
+     * When a window is shown
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
      */
-
-    ; When a window is shown
     static Show(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
         this("Show", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is created, but not necessarily shown
-    static Create(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window is created, but not necessarily shown
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static Create(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("Create", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is destroyed/closed
-    static Close(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+    
+    /**
+     * When a window is destroyed/closed
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static Close(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("Close", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is activated/focused
-    static Active(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window is activated/focused
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static Active(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("Active", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is inactivated/unfocused
-    static NotActive(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window is inactivated/unfocused
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static NotActive(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("NotActive", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is moved or resized
-    static Move(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window is moved or resized
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static Move(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("Move", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is starting to be moved or resized
-    static MoveStart(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window is starting to be moved or resized
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static MoveStart(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("MoveStart", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window has been moved or resized
-    static MoveEnd(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window has been moved or resized
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static MoveEnd(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("MoveEnd", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is minimized
-    static Minimize(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window is minimized
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static Minimize(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("Minimize", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is restored
-    static Restore(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window is restored
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static Restore(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("Restore", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
-    ; When a window is maximized
-    static Maximize(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") =>
+
+    /**
+     * When a window is maximized
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static Maximize(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("Maximize", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
+
     ; Stops one or all event hooks
     static Stop(EventType?, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") {
         local MatchMap, Hook
@@ -78,6 +156,7 @@ class WinEvent {
             if MatchCriteria[1] = WinTitle && MatchCriteria[2] = WinText && MatchCriteria[3] = ExcludeTitle && MatchCriteria[4] = ExcludeText
                 EventObj.Stop()
     }
+
     ; Checks whether an event is active
     static IsActive(EventType, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") {
         if !this.__RegisteredEvents.Has(EventType)
@@ -97,21 +176,20 @@ class WinEvent {
         /**
          * Sets a new event hook using SetWinEventHook and returns on object describing the hook. 
          * When the object is released, the hook is also released.
-         * @param callbackFunc The function that will be called, which needs to accept 7 arguments:
-         *    hWinEventHook, event, hwnd, idObject, idChild, idEventThread, dwmsEventTime
-         * @param eventMin Optional: Specifies the event constant for the lowest event value in the range of events that are handled by the hook function.
-         *  Default is the lowest possible event value.
-         *  See more about event constants: https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
-         *  Msaa Events List: Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd318066(V=Vs.85).Aspx
-         *  System-Level And Object-Level Events: Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373657(V=Vs.85).Aspx
-         *  Console Accessibility: Https://Msdn.Microsoft.Com/En-Us/Library/Ms971319.Aspx
-         * @param eventMax Optional: Specifies the event constant for the highest event value in the range of events that are handled by the hook function.
+         * @param {(hWinEventHook, event, hwnd, idObject, idChild, idEventThread, dwmsEventTime) => Integer} callbackFunc The function that will be called, which needs to accept 7 arguments.
+         * @param {Integer} [eventMin] Optional: Specifies the event constant for the lowest event value in the range of events that are handled by the hook function.  
+         *  Default is the lowest possible event value.  
+         * - See more about [event constants](https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants)
+         * - [Msaa Events List](Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd318066(V=Vs.85).Aspx)
+         * - [System-Level And Object-Level Events](Https://Msdn.Microsoft.Com/En-Us/Library/Windows/Desktop/Dd373657(V=Vs.85).Aspx)
+         * - [Console Accessibility](Https://Msdn.Microsoft.Com/En-Us/Library/Ms971319.Aspx)
+         * @param {Integer} [eventMax] Optional: Specifies the event constant for the highest event value in the range of events that are handled by the hook function.
          *  If eventMin is omitted then the default is the highest possible event value.
          *  If eventMin is specified then the default is eventMin.
-         * @param winTitle Optional: WinTitle of a certain window to hook to. Default is system-wide hook.
-         * @param PID Optional: process ID of the process for which threads to hook to. Default is system-wide hook.
-         * @param flags Flag values that specify the location of the hook function and of the events to be skipped.
-         *  Default is WINEVENT_OUTOFCONTEXT = 0 and WINEVENT_SKIPOWNPROCESS = 2. 
+         * @param {Integer|String} [winTitle=0] Optional: WinTitle of a certain window to hook to. Default is system-wide hook.
+         * @param {Integer} [PID=0] Optional: process ID of the process for which threads to hook to. Default is system-wide hook.
+         * @param {Integer} [flags=0x0002] Flag values that specify the location of the hook function and of the events to be skipped.
+         *  Default is `WINEVENT_OUTOFCONTEXT` = 0 and `WINEVENT_SKIPOWNPROCESS` = 2. 
          * @returns {WinEventHook} 
          */
         __New(callbackFunc, eventMin?, eventMax?, winTitle := 0, PID := 0, flags := 0x0002) {
@@ -139,11 +217,12 @@ class WinEvent {
     ; ONLY INTERNAL METHODS AHEAD
 
     static __RequiredHooks := Map("Show", [this.EVENT_OBJECT_SHOW], "Create", [this.EVENT_OBJECT_CREATE]
-    , "Close", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_NAMECHANGE, this.EVENT_OBJECT_DESTROY]
-    , "Active", [this.EVENT_SYSTEM_FOREGROUND], "NotActive", [this.EVENT_SYSTEM_FOREGROUND]
-    , "Move", [this.EVENT_OBJECT_LOCATIONCHANGE], "MoveStart", [this.EVENT_SYSTEM_MOVESIZESTART]
-    , "MoveEnd", [this.EVENT_SYSTEM_MOVESIZEEND], "Minimize", [this.EVENT_SYSTEM_MINIMIZESTART]
-    , "Maximize", [this.EVENT_OBJECT_LOCATIONCHANGE])
+        , "Close", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_NAMECHANGE, this.EVENT_OBJECT_DESTROY]
+        , "Active", [this.EVENT_SYSTEM_FOREGROUND], "NotActive", [this.EVENT_SYSTEM_FOREGROUND]
+        , "Move", [this.EVENT_OBJECT_LOCATIONCHANGE], "MoveStart", [this.EVENT_SYSTEM_MOVESIZESTART]
+        , "MoveEnd", [this.EVENT_SYSTEM_MOVESIZEEND], "Minimize", [this.EVENT_SYSTEM_MINIMIZESTART]
+        , "Maximize", [this.EVENT_OBJECT_LOCATIONCHANGE])
+
     ; Internal variables: keep track of registered events (the match criteria) and registered window hooks
     static __RegisteredEvents := Map(), __Hooks := Map()
 
@@ -212,11 +291,8 @@ class WinEvent {
     ; Internal use: handles the event called by SetWinEventHook. 
     static __HandleWinEvent(hWinEventHook, event, hwnd, idObject, idChild, idEventThread, dwmsEventTime) {
         Critical -1
-        static OBJID_WINDOW := 0, INDEXID_CONTAINER := 0, EVENT_OBJECT_CREATE := 0x8000, 
-            EVENT_OBJECT_DESTROY := 0x8001, EVENT_OBJECT_SHOW := 0x8002, EVENT_OBJECT_FOCUS := 0x8005,
-            EVENT_OBJECT_LOCATIONCHANGE := 0x800B, EVENT_SYSTEM_MINIMIZESTART := 0x0016, EVENT_SYSTEM_MINIMIZEEND := 0x0017,
-            EVENT_SYSTEM_MOVESIZESTART := 0x000A, EVENT_SYSTEM_MOVESIZEEND := 0x000B, EVENT_SYSTEM_FOREGROUND := 0x0003,
-            EVENT_OBJECT_NAMECHANGE := 0x800C ; These are duplicated here for performance reasons
+        static OBJID_WINDOW := 0, INDEXID_CONTAINER := 0, EVENT_OBJECT_CREATE := 0x8000, EVENT_OBJECT_DESTROY := 0x8001, EVENT_OBJECT_SHOW := 0x8002, EVENT_OBJECT_FOCUS := 0x8005, EVENT_OBJECT_LOCATIONCHANGE := 0x800B, EVENT_SYSTEM_MINIMIZESTART := 0x0016, EVENT_SYSTEM_MINIMIZEEND := 0x0017, EVENT_SYSTEM_MOVESIZESTART := 0x000A, EVENT_SYSTEM_MOVESIZEEND := 0x000B, EVENT_SYSTEM_FOREGROUND := 0x0003, EVENT_OBJECT_NAMECHANGE := 0x800C ; These are duplicated here for performance reasons
+
         local PrevDHW := DetectHiddenWindows(1), HookObj, MatchCriteria
         idObject := idObject << 32 >> 32, idChild := idChild << 32 >> 32, event &= 0xFFFFFFFF, idEventThread &= 0xFFFFFFFF, dwmsEventTime &= 0xFFFFFFFF ; convert to INT/UINT
 
