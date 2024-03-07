@@ -4,6 +4,39 @@
  * The WinEvent class can monitor window events for all windows or specific windows.  
  * Currently the following events are supported: `Show`, `Create`, `Close`, `Active`, `NotActive`, `Move`, 
  * `MoveStart`, `MoveEnd`, `Minimize`, `Restore`, `Maximize`. See comments for the functions for more information.
+ * 
+ * All the event initiation methods have the same syntax: 
+ * `WinEvent.EventType(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="")`
+ * where Callback is the function that will be called once the event happened, and Count specifies
+ * the maximum amount of callbacks. 
+ * The function returns an event hook object that describes the hook (see descriptions down below).
+ * 
+ * `Callback(eventObj, hWnd, dwmsEventTime)`
+ *      `eventObj`     : the event hook object describing the hook
+ *      `hWnd`         : the window handle that triggered the event
+ *      `dwmsEventTime`: the `A_TickCount` for when the event happened
+ * 
+ * Hook object properties:
+ * `EventHook.EventType`
+ *      The name of the event type (Show, Close, etc)
+ * `EventHook.MatchCriteria`
+ *      The window matching criteria in array format `[WinTitle, WinText, ExcludeTitle, ExcludeText]`
+ * `EventHook.Callback`
+ *      The callback function
+ * `EventHook.Count`
+ *      The current count of how many times the callback may be called
+ * 
+ * Hook object methods:
+ * `EventHook.Stop()`
+ *      Stops the event hook
+ * 
+ * WinEvent methods (in addition to the event methods):
+ * `WinEvent.Stop(EventType?, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="")`
+ *      Stops one or all event hooks.
+ * `WinEvent.IsActive(EventType, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="")
+ *      Checks whether an event is active.
+ * `WinEvent.IsEventTypeActive(EventType)`
+ *      Checks whether any events for a given event type are active.
  */
 class WinEvent {
     ; A curated list of event enumerations
@@ -140,7 +173,11 @@ class WinEvent {
     static Maximize(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
         this("Maximize", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
 
-    ; Stops one or all event hooks
+    /**
+     * Stops one or all event hooks
+     * @param EventType The name of the event function (eg Close).
+     * If this isn't specified then all event hooks will be stopped.
+     */
     static Stop(EventType?, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") {
         local MatchMap, Hook
         if !IsSet(EventType) {
@@ -157,7 +194,10 @@ class WinEvent {
                 EventObj.Stop()
     }
 
-    ; Checks whether an event is active
+    /**
+     * Checks whether an event is active
+     * @param EventType The name of the event function (eg Close)
+     */
     static IsActive(EventType, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") {
         if !this.__RegisteredEvents.Has(EventType)
             return 0
@@ -166,7 +206,11 @@ class WinEvent {
                 return 1
         return 0
     }
-    ; Checks whether any events for a given event type are active
+
+    /**
+     * Checks whether any events for a given event type are active
+     * @param EventType The name of the event function (eg Close)
+     */
     static IsEventTypeActive(EventType) => this.__RegisteredEvents.Has(EventType)
 
     ; Stops the event hook, same as if the object was destroyed.
