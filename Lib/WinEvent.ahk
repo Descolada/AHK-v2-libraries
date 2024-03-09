@@ -232,11 +232,11 @@ class WinEvent {
          *  If eventMin is specified then the default is eventMin.
          * @param {Integer|String} [winTitle=0] Optional: WinTitle of a certain window to hook to. Default is system-wide hook.
          * @param {Integer} [PID=0] Optional: process ID of the process for which threads to hook to. Default is system-wide hook.
-         * @param {Integer} [flags=0x0002] Flag values that specify the location of the hook function and of the events to be skipped.
-         *  Default is `WINEVENT_OUTOFCONTEXT` = 0 and `WINEVENT_SKIPOWNPROCESS` = 2. 
+         * @param {Integer} [flags=0] Flag values that specify the location of the hook function and of the events to be skipped.
+         *  Default is `WINEVENT_OUTOFCONTEXT` = 0. 
          * @returns {WinEventHook} 
          */
-        __New(callbackFunc, eventMin?, eventMax?, winTitle := 0, PID := 0, flags := 0x0002) {
+        __New(callbackFunc, eventMin?, eventMax?, winTitle := 0, PID := 0, flags := 0) {
             if !IsSet(eventMin)
                 eventMin := 0x00000001, eventMax := IsSet(eventMax) ? eventMax : 0x7fffffff
             else if !IsSet(eventMax)
