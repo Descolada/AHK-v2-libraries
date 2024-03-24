@@ -27,6 +27,8 @@
  *      The callback function
  * `EventHook.Count`
  *      The current count of how many times the callback may be called
+ * `EventHook.Pause(NewState:=1)
+ *      Pauses or unpauses the hook. 1 = pause, 0 = unpause, -1 = toggle
  * `EventHook.IsPaused`
  *      Used to get or set whether the hook is currently active or paused
  * 
@@ -37,6 +39,8 @@
  * WinEvent methods (in addition to the event methods):
  * `WinEvent.Stop(EventType?, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="")`
  *      Stops one or all event hooks.
+ * `WinEvent.Pause(NewState:=1)
+ *      Pauses or unpauses all event hooks. 1 = pause, 0 = unpause, -1 = toggle
  * `WinEvent.IsRegistered(EventType, WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="")
  *      Checks whether an event with the specified type and criteria is registered.
  * `WinEvent.IsEventTypeRegistered(EventType)`
