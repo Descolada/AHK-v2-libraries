@@ -275,7 +275,7 @@ class WinEvent {
                     throw TargetError("Window not found", -1)
                 this.threadId := DllCall("GetWindowThreadProcessId", "Int", this.winTitle, "UInt*", &PID)
             }
-            this.pCallback := CallbackCreate(callbackFunc, "C Fast", 7)
+            this.pCallback := CallbackCreate(callbackFunc, "C", 7)
             , this.hHook := DllCall("SetWinEventHook", "UInt", eventMin, "UInt", eventMax, "Ptr", 0, "Ptr", this.pCallback, "UInt", this.PID := PID, "UInt", this.threadId, "UInt", flags)
         }
         __Delete() {
@@ -434,7 +434,7 @@ class WinEvent {
         }
         Cleanup:
         DetectHiddenWindows PrevDHW
-        Critical("Off"), Sleep(-1) ; Check the message queue immediately
+        Sleep(-1) ; Check the message queue immediately
     }
     ; Internal use: keeps track of all open windows to only handle top-level windows
     static __UpdateWinList() {
