@@ -175,10 +175,9 @@ ToString(val?) {
  * @returns {Array}
  */
 RegExMatchAll(haystack, needleRegEx, startingPosition := 1) {
-	out := []
-	While startingPosition := RegExMatch(haystack, needleRegEx, &outputVar, startingPosition) {
-		out.Push(outputVar), startingPosition += outputVar[0] ? StrLen(outputVar[0]) : 1
-	}
+	out := [], end := StrLen(haystack)+1
+	While startingPosition < end && RegExMatch(haystack, needleRegEx, &outputVar, startingPosition)
+		out.Push(outputVar), startingPosition := outputVar.Pos + (outputVar.Len || 1)
 	return out
 }
 
