@@ -2,7 +2,7 @@
 
 /**
  * The WinEvent class can monitor window events for all windows or specific windows.  
- * Currently the following events are supported: `Show`, `Create`, `Close`, `Active`, `NotActive`, `Move`, 
+ * Currently the following events are supported: `Show`, `Create`, `Close`, `Exist`, `Active`, `NotActive`, `Move`, 
  * `MoveStart`, `MoveEnd`, `Minimize`, `Restore`, `Maximize`. See comments for the functions for more information.
  * 
  * All the event initiation methods have the same syntax: 
@@ -98,6 +98,17 @@ class WinEvent {
         this("Close", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
 
     /**
+     * When a window with a specified title exists
+     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * - `hWnd`         : the window handle that triggered the event
+     * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @returns {WinEvent} 
+     */
+    static Exist(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
+        this("Exist", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
+
+    /**
      * When a window is activated/focused
      * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
@@ -116,8 +127,11 @@ class WinEvent {
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
      * @returns {WinEvent} 
      */
-    static NotActive(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
-        this("NotActive", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
+    static NotActive(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") {
+        if WinTitle = "A"
+            this.__WinGetCurrentTitle(&WinTitle, WinText, ExcludeTitle, ExcludeText)
+        return this("NotActive", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
+    }
 
     /**
      * When a window is moved or resized
@@ -288,7 +302,8 @@ class WinEvent {
 
     static __RequiredHooks := Map("Show", [this.EVENT_OBJECT_SHOW], "Create", [this.EVENT_OBJECT_CREATE]
         , "Close", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_NAMECHANGE, this.EVENT_OBJECT_DESTROY]
-        , "Active", [this.EVENT_SYSTEM_FOREGROUND], "NotActive", [this.EVENT_SYSTEM_FOREGROUND]
+        , "Exist", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_NAMECHANGE]
+        , "Active", [this.EVENT_SYSTEM_FOREGROUND, this.EVENT_OBJECT_NAMECHANGE], "NotActive", [this.EVENT_SYSTEM_FOREGROUND, this.EVENT_OBJECT_NAMECHANGE]
         , "Move", [this.EVENT_OBJECT_LOCATIONCHANGE], "MoveStart", [this.EVENT_SYSTEM_MOVESIZESTART]
         , "MoveEnd", [this.EVENT_SYSTEM_MOVESIZEEND], "Minimize", [this.EVENT_SYSTEM_MINIMIZESTART]
         , "Maximize", [this.EVENT_OBJECT_LOCATIONCHANGE])
@@ -347,6 +362,8 @@ class WinEvent {
             try this.__IsActive := WinActive(MatchCriteria*)
             catch
                 this.__IsActive := 0
+        } else if EventType = "Exist" && hWnd := WinExist(MatchCriteria*) {
+            SetTimer(Callback.Bind(this, hWnd, A_TickCount), -1)
         }
         if !__WinEvent.__RegisteredEvents.Has(EventType)
             __WinEvent.__RegisteredEvents[EventType] := Map()
@@ -405,7 +422,7 @@ class WinEvent {
                     HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
                 }
             }
-        } 
+        }
         if ((event = EVENT_OBJECT_LOCATIONCHANGE && EventName := "Move")
             || (event = EVENT_OBJECT_CREATE && EventName := "Create") 
             || (event = EVENT_OBJECT_SHOW && EventName := "Show")
@@ -413,18 +430,23 @@ class WinEvent {
             || (event = EVENT_SYSTEM_MOVESIZEEND && EventName := "MoveEnd")
             || (event = EVENT_SYSTEM_MINIMIZESTART && EventName := "Minimize")
             || (event = EVENT_SYSTEM_MINIMIZEEND && EventName := "Restore")
-            || (event = EVENT_SYSTEM_FOREGROUND && EventName := "Active")) && this.__RegisteredEvents.Has(EventName) {
+            || (event = EVENT_SYSTEM_FOREGROUND && EventName := "Active")
+            || (event = EVENT_OBJECT_NAMECHANGE && hWnd = WinExist("A") && EventName := "Active")) && this.__RegisteredEvents.Has(EventName) {
             for MatchCriteria, HookObj in this.__RegisteredEvents[EventName] {
                 if !HookObj.IsPaused && (MatchCriteria.IsBlank || (MatchCriteria.ahk_id ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])))
                     HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
             }
-        } 
-        if (event = EVENT_SYSTEM_FOREGROUND && this.__RegisteredEvents.Has("NotActive")) {
+        }
+        if (event = EVENT_OBJECT_CREATE || event = EVENT_OBJECT_NAMECHANGE) && this.__RegisteredEvents.Has("Exist") {
+            for MatchCriteria, HookObj in this.__RegisteredEvents["Exist"] {
+                if !HookObj.IsPaused && (MatchCriteria.IsBlank || (MatchCriteria.ahk_id ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])))
+                    HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
+            }
+        }
+        if (event = EVENT_SYSTEM_FOREGROUND || event = EVENT_OBJECT_NAMECHANGE) && this.__RegisteredEvents.Has("NotActive") {
             for MatchCriteria, HookObj in this.__RegisteredEvents["NotActive"] {
-                try hWndActive := WinActive(MatchCriteria*)
-                catch
-                    hWndActive := 0
-                try if !HookObj.IsPaused && HookObj.__IsActive && !hWndActive {
+                hWndActive := WinActive(MatchCriteria*)
+                if !hWndActive && !HookObj.IsPaused && HookObj.__IsActive {
                     HookObj.__ActivateCallback(HookObj, HookObj.__IsActive, dwmsEventTime)
                     HookObj.__IsActive := 0
                 }
@@ -452,5 +474,12 @@ class WinEvent {
         for hWnd in MatchingWinList
             MatchingWinListMap[hWnd] := 1
         this.MatchingWinList := MatchingWinListMap
+    }
+    static __WinGetCurrentTitle(&WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") {
+        local hWnd
+        if !(hWnd := WinExist(WinTitle, WinText, ExcludeTitle, ExcludeText))
+            return 0
+        try WinTitle := WinTitle ? WinGetTitle(hWnd) : ""
+        return hWnd
     }
 }
