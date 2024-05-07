@@ -306,7 +306,7 @@ class WinEvent {
         , "Active", [this.EVENT_SYSTEM_FOREGROUND, this.EVENT_OBJECT_NAMECHANGE], "NotActive", [this.EVENT_SYSTEM_FOREGROUND, this.EVENT_OBJECT_NAMECHANGE]
         , "Move", [this.EVENT_OBJECT_LOCATIONCHANGE], "MoveStart", [this.EVENT_SYSTEM_MOVESIZESTART]
         , "MoveEnd", [this.EVENT_SYSTEM_MOVESIZEEND], "Minimize", [this.EVENT_SYSTEM_MINIMIZESTART]
-        , "Maximize", [this.EVENT_OBJECT_LOCATIONCHANGE])
+        , "Restore", [this.EVENT_SYSTEM_MINIMIZEEND], "Maximize", [this.EVENT_OBJECT_LOCATIONCHANGE])
 
     ; Internal variables: keep track of registered events (the match criteria) and registered window hooks
     static __RegisteredEvents := Map(), __Hooks := Map(), IsPaused := 0
