@@ -347,6 +347,7 @@ class WinEvent {
     __New(EventType, Callback, Count, MatchCriteria) {
         __WinEvent := this.__WinEvent, this.EventType := EventType, this.MatchCriteria := MatchCriteria
             , this.Callback := Callback, this.Count := Count, this.IsPaused := 0
+            , this.TitleMatchMode := A_TitleMatchMode, this.TitleMatchModeSpeed := A_TitleMatchModeSpeed
         MatchCriteria[1] := __WinEvent.__DeobjectifyWinTitle(MatchCriteria[1])
         this.MatchCriteria.IsBlank := (MatchCriteria[1] == "" && MatchCriteria[2] == "" && MatchCriteria[3] == "" && MatchCriteria[4] == "")
         if InStr(MatchCriteria[1], "ahk_id")
@@ -392,7 +393,7 @@ class WinEvent {
         static OBJID_WINDOW := 0, INDEXID_CONTAINER := 0, EVENT_OBJECT_CREATE := 0x8000, EVENT_OBJECT_DESTROY := 0x8001, EVENT_OBJECT_SHOW := 0x8002, EVENT_OBJECT_FOCUS := 0x8005, EVENT_OBJECT_LOCATIONCHANGE := 0x800B, EVENT_SYSTEM_MINIMIZESTART := 0x0016, EVENT_SYSTEM_MINIMIZEEND := 0x0017, EVENT_SYSTEM_MOVESIZESTART := 0x000A, EVENT_SYSTEM_MOVESIZEEND := 0x000B, EVENT_SYSTEM_FOREGROUND := 0x0003, EVENT_OBJECT_NAMECHANGE := 0x800C ; These are duplicated here for performance reasons
         if this.IsPaused
             return
-        local PrevDHW := DetectHiddenWindows(1), HookObj, MatchCriteria
+        local PrevDHW := DetectHiddenWindows(1), HookObj, MatchCriteria, PrevTitleMatchMode := A_TitleMatchMode, PrevTitleMatchModeSpeed := A_TitleMatchModeSpeed
         idObject := idObject << 32 >> 32, idChild := idChild << 32 >> 32, event &= 0xFFFFFFFF, idEventThread &= 0xFFFFFFFF, dwmsEventTime &= 0xFFFFFFFF ; convert to INT/UINT
 
         if (event = EVENT_OBJECT_DESTROY) {
@@ -416,7 +417,7 @@ class WinEvent {
         }
         if (event = EVENT_OBJECT_LOCATIONCHANGE && this.__RegisteredEvents.Has("Maximize")) { ; Only handles "Maximize"
             for MatchCriteria, HookObj in this.__RegisteredEvents["Maximize"] {
-                if !HookObj.IsPaused && (MatchCriteria.IsBlank || (MatchCriteria.ahk_id ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4]))) {
+                if !HookObj.IsPaused && (MatchCriteria.IsBlank || ((A_TitleMatchMode := HookObj.TitleMatchMode, A_TitleMatchModeSpeed := HookObj.TitleMatchModeSpeed, MatchCriteria.ahk_id) ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4]))) {
                     if WinGetMinMax(hWnd) != 1
                         continue
                     HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
@@ -433,13 +434,13 @@ class WinEvent {
             || (event = EVENT_SYSTEM_FOREGROUND && EventName := "Active")
             || (event = EVENT_OBJECT_NAMECHANGE && hWnd = WinExist("A") && EventName := "Active")) && this.__RegisteredEvents.Has(EventName) {
             for MatchCriteria, HookObj in this.__RegisteredEvents[EventName] {
-                if !HookObj.IsPaused && (MatchCriteria.IsBlank || (MatchCriteria.ahk_id ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])))
+                if !HookObj.IsPaused && (MatchCriteria.IsBlank || ((A_TitleMatchMode := HookObj.TitleMatchMode, A_TitleMatchModeSpeed := HookObj.TitleMatchModeSpeed, MatchCriteria.ahk_id) ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])))
                     HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
             }
         }
         if (event = EVENT_OBJECT_CREATE || event = EVENT_OBJECT_NAMECHANGE) && this.__RegisteredEvents.Has("Exist") {
             for MatchCriteria, HookObj in this.__RegisteredEvents["Exist"] {
-                if !HookObj.IsPaused && (MatchCriteria.IsBlank || (MatchCriteria.ahk_id ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])))
+                if !HookObj.IsPaused && (MatchCriteria.IsBlank || ((A_TitleMatchMode := HookObj.TitleMatchMode, A_TitleMatchModeSpeed := HookObj.TitleMatchModeSpeed, MatchCriteria.ahk_id) ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])))
                     HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
             }
         }
@@ -455,6 +456,7 @@ class WinEvent {
             }
         }
         Cleanup:
+        A_TitleMatchMode := PrevTitleMatchMode, A_TitleMatchModeSpeed := PrevTitleMatchModeSpeed
         DetectHiddenWindows PrevDHW
         Sleep(-1) ; Check the message queue immediately
     }
