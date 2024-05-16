@@ -503,6 +503,7 @@ class WinEvent {
             }
         }
         Cleanup:
+        Critical("Off")
         Sleep(-1) ; Check the message queue immediately
     }
     ; Internal use: keeps track of open windows that match the criteria, because matching for name
