@@ -519,8 +519,6 @@ class WinEvent {
         if this.EventType = "Restore" {
             for hWnd in MatchingWinList {
                 try MatchingWinListMap[hWnd] := WinGetMinMax(hWnd)
-                catch
-                    MatchingWinListMap[hWnd] := 0
             }
         } else {
             for hWnd in MatchingWinList
