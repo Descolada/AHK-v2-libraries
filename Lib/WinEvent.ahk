@@ -310,7 +310,7 @@ class WinEvent {
                     throw TargetError("Window not found", -1)
                 this.threadId := DllCall("GetWindowThreadProcessId", "Int", this.winTitle, "UInt*", &PID)
             }
-            this.pCallback := CallbackCreate(callbackFunc, "C", 7)
+            this.pCallback := CallbackCreate(callbackFunc, "C Fast", 7)
             , this.hHook := DllCall("SetWinEventHook", "UInt", eventMin, "UInt", eventMax, "Ptr", 0, "Ptr", this.pCallback, "UInt", this.PID := PID, "UInt", this.threadId, "UInt", flags)
         }
         __Delete() {
@@ -453,7 +453,10 @@ class WinEvent {
             for MatchCriteria, HookObj in this.__RegisteredEvents["Maximize"] {
                 if !HookObj.IsPaused && (MatchCriteria.IsBlank || ((A_DetectHiddenWindows := HookObj.DetectHiddenWindows, A_DetectHiddenText := HookObj.DetectHiddenText, A_TitleMatchMode := HookObj.TitleMatchMode, A_TitleMatchModeSpeed := HookObj.TitleMatchModeSpeed, 
                     MatchCriteria.ahk_id) ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4]))) {
-                    if WinGetMinMax(hWnd) != 1
+                    try {
+                        if WinGetMinMax(hWnd) != 1
+                            continue
+                    } catch
                         continue
                     HookObj.__ActivateCallback(HookObj, hWnd, dwmsEventTime)
                 }
@@ -514,8 +517,11 @@ class WinEvent {
         local PrevDHW := DetectHiddenWindows(this.DetectHiddenWindows), PrevDHT := DetectHiddenText(this.DetectHiddenText)
             , MatchingWinList := WinGetList(this.MatchCriteria*), MatchingWinListMap := Map(), hWnd
         if this.EventType = "Restore" {
-            for hWnd in MatchingWinList
-                MatchingWinListMap[hWnd] := WinGetMinMax(hWnd)
+            for hWnd in MatchingWinList {
+                try MatchingWinListMap[hWnd] := WinGetMinMax(hWnd)
+                catch
+                    MatchingWinListMap[hWnd] := 0
+            }
         } else {
             for hWnd in MatchingWinList
                 MatchingWinListMap[hWnd] := 1
