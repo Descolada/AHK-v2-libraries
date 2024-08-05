@@ -1,7 +1,6 @@
 #include ..\Lib\RegExHotstring.ahk
 #Requires AutoHotkey v2.0 
 
-RegExHotstring.MouseReset := 0
 ; Can be used as normal hotstrings
 RegExHotstring("::omg", "oh my god")
 
