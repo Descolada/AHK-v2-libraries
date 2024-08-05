@@ -17,11 +17,20 @@
  *  > Removes a RegExHotstring completely. This differs from OnOffToggle because OnOffToggle does
  *    not delete the hotstring, only temporarily enables/disables it. 
  * 
+ * `RegExHotstring.Start()`
+ *  > Resumes the hotstring recognizer after being stopped with `RegExHotstring.Stop()`.
+ * 
+ * `RegExHotstring.Stop()`
+ *  > Stops the hotstring recognizer.
+ * 
+ * `RegExHotstring.Reset()`
+ *  > Immediately resets the hotstring recognizer content.
+ * 
  * `RegExHotstring.HotstringRecognizer`
  *  > Current RegExHotstring recognizer content.
  * 
  * `RegExHotstring.IsActive`
- *  > Whether the RegExHotstring is currently gathering input and active
+ *  > Whether the RegExHotstring is currently gathering input and active.
  * 
  * `RegExHotstring.EndChars`
  *  > List of keys that, when pressed, may trigger a RegExHotstring. 
@@ -76,7 +85,7 @@ class RegExHotstring {
      */
     static Call(Trigger, Replacement?, OnOffToggle?, SendFunction?) {
         if !this.__RegisteredHotstrings.Length
-            this.__Start()
+            this.Start()
         if !RegExMatch(Trigger, "^:([^:]*):", &Options:="") {
             if Trigger = "MouseReset" || (Trigger := "NoMouse" && !(Replacement := 0))
                 return (Prev := this.MouseReset, this.MouseReset := Replacement ?? Prev, Prev)
@@ -119,7 +128,7 @@ class RegExHotstring {
             if HS.TriggerWithOptions == Trigger && HS.HotIf == this.__CurrentHotIf {
                 this.__RegisteredHotstrings.Delete(HS)
                 if !this.__RegisteredHotstrings.Count
-                    this.__End()
+                    this.Stop()
                 return
             }
         }
@@ -167,6 +176,22 @@ class RegExHotstring {
                     this.__ModifierEndChars .= "{" A_LoopField "}"
             }
         }
+    }
+    ; Can be used to resume the hotstring recognizer after stopping it with `RegExHotstring.Stop()`
+    static Start() {
+        if this.IsActive
+            return
+        this.Reset()
+        this.MouseReset := this.MouseReset
+        this.EndChars := this.EndChars
+        this.__Hook.Start()
+        this.IsActive := 1
+    }
+    ; Stops the hotstring recognizer
+    static Stop() {
+        this.IsActive := 0
+        this.__SetMouseReset(0)
+        this.__Hook.Stop()
     }
     ; Immediately resets the hotstring recognizer
     static Reset(*) => (this.__DeactivateEndChars(), this.HotstringRecognizer := "", this.__hWnd := DllCall("GetForegroundWindow", "ptr"))
@@ -417,17 +442,5 @@ class RegExHotstring {
         if usButtonFlags & 0x0001 || usButtonFlags & 0x0004 || usButtonFlags & 0x0010 || usButtonFlags & 0x0040 || usButtonFlags & 0x0100 {
             this.__DeactivateEndChars(), this.HotstringRecognizer := "", MouseGetPos(,, &hWnd), this.__hWnd := hWnd
         }
-    }
-    static __Start() {
-        this.Reset()
-        this.MouseReset := this.MouseReset
-        this.EndChars := this.EndChars
-        this.__Hook.Start()
-        this.IsActive := 1
-    }
-    static __End() {
-        this.IsActive := 0
-        this.__SetMouseReset(0)
-        this.__Hook.Stop()
     }
 }
