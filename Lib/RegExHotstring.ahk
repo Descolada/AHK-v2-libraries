@@ -32,8 +32,7 @@
  *    Default is `{Left}{Right}{Up}{Down}{Next}{Prior}{Home}{End}`
  * 
  * `RegExHotstring.MouseReset`
- *  > Controls whether a mouse button click resets the recognizer or not. By default this is On,
- *    but note that due to AHK limitations the mouse cursor may hang if 
+ *  > Controls whether a mouse button click resets the recognizer or not. By default this is On.
  * 
  * `RegExHotstring.SendFunction`
  *  > Can be used to change the default Send function for all new RegExHotstrings. Eg. `RegExHotstring.SendFunction := SendEvent`
@@ -146,6 +145,8 @@ class RegExHotstring {
         get => this.__EndChars
         set {
             static lpKeyState := Buffer(256,0), pwszBuff := Buffer(4)
+            if !(Value is String) || Value = ""
+                throw ValueError("Invalid EndChars",, -1)
             this.__EndChars := Value
             this.__NoModifierEndChars := ""
             this.__ModifierEndChars := InStr(Value, " ") ? " " : ""
