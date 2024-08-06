@@ -63,8 +63,11 @@ class RegExHotstring {
      *  > `M0` (M followed by a zero): Turn off replacing RegEx back-references in the replacement word.
      *  > `*` (asterisk): An ending character is not required to trigger the hotstring.
      *  > `?` (question mark): The hotstring will be triggered even when it is inside another word.
+     *      NOTE: If this is *not* used then the trigger RegEx will be modified to be "(?<=\s|^)TRIGGER$".
      *  > `B0` (B followed by a zero): Automatic backspacing is not done to erase the abbreviation you type.
      *  > `C`: Case sensitive: When you type an abbreviation, it must exactly match the case defined in the script.
+     *      NOTE: If this is used and the RegEx trigger options does not contain `i`, then the `i` will be added. 
+     *            If this is *not* used then `i` will be removed from the options.
      *  > `C1` (C followed by a one): Turn off case conform, meaning the replacement case will not match the trigger case.
      *  > `O`: Omit the ending character of auto-replace hotstrings when the replacement is produced.
      *  > `T`: Send the replacement string in Text mode, meaning special characters such as `+` are typed out literally.
@@ -365,8 +368,8 @@ class RegExHotstring {
         if opts["X"] {
             replacement := "", TextMode := ""
             if B
-                BS := StrLen(RegExReplace(TriggerText, "s)\X", "_"))
-        } else {    
+                RegExReplace(TriggerText, "s)\X",, &BS)
+        } else {
             if (opts["C"] < 2) && IsUpper(SubStr(ThisHotstringLetters := RegexReplace(TriggerText, "\P{L}"), 1, 1), 'Locale') {
                 if IsUpper(trail := SubStr(ThisHotstringLetters, 2), 'Locale')
                     replacement := StrUpper(replacement)
@@ -436,11 +439,13 @@ class RegExHotstring {
         }
         ; Get RawInput data
         r := DllCall("GetRawInputData", "UInt", lParam, "UInt", 0x10000003, "Ptr", uRawInput, "UInt*", &sz := iSize, "UInt", 8 + (A_PtrSize * 2))
-
-        usButtonFlags := NumGet(uRawInput, offsets.usButtonFlags, "ushort")
-        
-        if usButtonFlags & 0x0001 || usButtonFlags & 0x0004 || usButtonFlags & 0x0010 || usButtonFlags & 0x0040 || usButtonFlags & 0x0100 {
-            this.__DeactivateEndChars(), this.HotstringRecognizer := "", MouseGetPos(,, &hWnd), this.__hWnd := hWnd
-        }
+        Loop {
+            usButtonFlags := NumGet(uRawInput, offsets.usButtonFlags, "ushort")
+            if usButtonFlags & 0x0001 || usButtonFlags & 0x0004 || usButtonFlags & 0x0010 || usButtonFlags & 0x0040 || usButtonFlags & 0x0100 {
+                this.__DeactivateEndChars(), this.HotstringRecognizer := "", MouseGetPos(,, &hWnd), this.__hWnd := hWnd
+                While DllCall("GetRawInputBuffer", "Ptr", uRawInput, "Uint*", &sz := iSize, "UInt", 8 + (A_PtrSize * 2))
+                    continue
+            }
+        } Until !DllCall("GetRawInputBuffer", "Ptr", uRawInput, "Uint*", &sz := iSize, "UInt", 8 + (A_PtrSize * 2))
     }
 }
