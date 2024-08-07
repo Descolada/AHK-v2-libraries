@@ -5,7 +5,7 @@
 WinEvent.Active(ActiveWindowChanged)
 Persistent()
 
-ActiveWindowChanged(hook, hWnd, *) {
+ActiveWindowChanged(hWnd, *) {
     ToolTip "Active window changed! New window info: `n" WinGetInfo(hWnd)
     SetTimer ToolTip, -5000
 }

@@ -5,7 +5,7 @@
 WinEvent.Maximize(WindowMaximizedEvent)
 Persistent()
 
-WindowMaximizedEvent(hook, hWnd, dwmsEventTime) {
+WindowMaximizedEvent(hWnd, hook, dwmsEventTime) {
     if MsgBox("A window was maximized at " dwmsEventTime ", hWnd " hWnd "`n`nStop hook?",, 0x4) = "Yes"
         hook.Stop()
 }

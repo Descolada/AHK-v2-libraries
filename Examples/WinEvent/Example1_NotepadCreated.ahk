@@ -10,7 +10,7 @@
 WinEvent.Show(NotepadCreated, "ahk_class Notepad ahk_exe notepad.exe")
 Persistent()
 
-NotepadCreated(hook, hWnd, dwmsEventTime) {
+NotepadCreated(hWnd, hook, dwmsEventTime) {
     ToolTip "Notepad was created at " dwmsEventTime ", hWnd " hWnd "`n"
     SetTimer ToolTip, -3000
 }
