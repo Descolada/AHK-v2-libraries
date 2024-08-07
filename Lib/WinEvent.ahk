@@ -13,10 +13,12 @@
  * NOTE: if all WinTitle criteria are left empty then any window will match. To match for Last Found
  *       Window, use WinExist() as WinTitle.
  * 
- * `Callback(eventObj, hWnd, dwmsEventTime)`
- *      `eventObj`     : the event hook object describing the hook
+ * `Callback(hWnd, eventObj, dwmsEventTime)`
  *      `hWnd`         : the window handle that triggered the event
+ *      `eventObj`     : the event hook object describing the hook (see the next section about "Hook object")
  *      `dwmsEventTime`: the `A_TickCount` for when the event happened
+ * If the callback returns 0 (default return value of functions) then `EventHook.Count` is decremented by one.
+ * Otherwise the count is not decremented.
  * 
  * Hook object properties:
  * `EventHook.EventType`
@@ -406,17 +408,14 @@ class WinEvent {
     }
     ; Internal use: adds the callback function to a queue that gets emptied at the end of __HandleWinEvent.
     ; Also keeps track of how many times the callback has been called.
-    static __AddCallbackToQueue(hWnd, HookObj, args*) {
-        if !HookObj.Callback
-            return
-        this.__EventQueue.Push(HookObj.Callback.Bind(hWnd, HookObj, args*))
-        if --HookObj.Count = 0
-            HookObj.Stop()
-    }
+    static __AddCallbackToQueue(hWnd, HookObj, args*) => HookObj.Callback ? this.__EventQueue.Push(HookObj.Callback.Bind(hWnd, HookObj, args*), HookObj) : 0
     ; Internal use: calls all callbacks in a new pseudo-thread
     static __EmptyEventQueue() {
-        While this.__EventQueue.Length && CB := this.__EventQueue.RemoveAt(1)
-            pCB := CallbackCreate(CB), DllCall(pCB), CallbackFree(pCB) ; Call in a new pseudo-thread
+        While this.__EventQueue.Length && (CB := this.__EventQueue.RemoveAt(1)) && (HookObj := this.__EventQueue.RemoveAt(1)) {
+            pCB := CallbackCreate(CB,, 0), ret := DllCall(pCB), CallbackFree(pCB) ; Call in a new pseudo-thread
+            if ret=0 && --HookObj.Count = 0
+                HookObj.Stop()
+        }
     }
     ; Internal use: handles the event called by SetWinEventHook. 
     static __HandleWinEvent(hWinEventHook, event, hwnd, idObject, idChild, idEventThread, dwmsEventTime) {
