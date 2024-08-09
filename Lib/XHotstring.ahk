@@ -2,52 +2,52 @@
 /**
  * Implements the `Hotstring` function but for regular expression trigger-words and replacements. 
  * 
- * `RegExHotstring(String [, Replacement, OnOffToggle, SendFunction])`
+ * `XHotstring(String [, Replacement, OnOffToggle, SendFunction])`
  *  > See documentation for `Hotstring`. Only the `K` option is currently not supported.
  *  > SendFunction can optionally be set to use a custom function to send the text (eg via Clipboard)
  * 
- * `RegExHotstring(NewOptions)`
+ * `XHotstring(NewOptions)`
  * 
- * `RegExHotstring(SubFunction [, Value1])`
+ * `XHotstring(SubFunction [, Value1])`
  * 
- * `RegExHotstring.HotIf(Callback := "")`
+ * `XHotstring.HotIf(Callback := "")`
  *  > Sets a new HotIf context for the next registered hotstrings
  * 
- * `RegExHotstring.Delete(Trigger)`
- *  > Removes a RegExHotstring completely. This differs from OnOffToggle because OnOffToggle does
+ * `XHotstring.Delete(Trigger)`
+ *  > Removes a XHotstring completely. This differs from OnOffToggle because OnOffToggle does
  *    not delete the hotstring, only temporarily enables/disables it. 
  * 
- * `RegExHotstring.Start()`
- *  > Resumes the hotstring recognizer after being stopped with `RegExHotstring.Stop()`.
+ * `XHotstring.Start()`
+ *  > Resumes the hotstring recognizer after being stopped with `XHotstring.Stop()`.
  * 
- * `RegExHotstring.Stop()`
+ * `XHotstring.Stop()`
  *  > Stops the hotstring recognizer.
  * 
- * `RegExHotstring.Reset()`
+ * `XHotstring.Reset()`
  *  > Immediately resets the hotstring recognizer content.
  * 
- * `RegExHotstring.HotstringRecognizer`
- *  > Current RegExHotstring recognizer content.
+ * `XHotstring.HotstringRecognizer`
+ *  > Current XHotstring recognizer content.
  * 
- * `RegExHotstring.IsActive`
- *  > Whether the RegExHotstring is currently gathering input and active.
+ * `XHotstring.IsActive`
+ *  > Whether the XHotstring is currently gathering input and active.
  * 
- * `RegExHotstring.EndChars`
- *  > List of keys that, when pressed, may trigger a RegExHotstring. 
+ * `XHotstring.EndChars`
+ *  > List of keys that, when pressed, may trigger a XHotstring. 
  *    Default is ``-()[]{}':;`"/\,.?!`n`s`t``
  * 
- * `RegExHotstring.ResetKeys`
- *  > List of keys that, when pressed, will reset the RegExHotstring recognizer content.
+ * `XHotstring.ResetKeys`
+ *  > List of keys that, when pressed, will reset the XHotstring recognizer content.
  *    Default is `{Left}{Right}{Up}{Down}{Next}{Prior}{Home}{End}`
  * 
- * `RegExHotstring.MouseReset`
+ * `XHotstring.MouseReset`
  *  > Controls whether a mouse button click resets the recognizer or not. By default this is On.
  * 
- * `RegExHotstring.SendFunction`
- *  > Can be used to change the default Send function for all new RegExHotstrings. Eg. `RegExHotstring.SendFunction := SendEvent`
+ * `XHotstring.SendFunction`
+ *  > Can be used to change the default Send function for all new XHotstrings. Eg. `XHotstring.SendFunction := SendEvent`
  *    Default is `Send`
  */
-class RegExHotstring {
+class XHotstring {
     static HotstringRecognizer := "", IsActive := 0, __EndChars := "-()[]{}':;`"/\,.?!`n`s`t", SendFunction := Send
         , __DefaultOptions := Map(), __ResetKeys := "{Left}{Right}{Up}{Down}{Next}{Prior}{Home}{End}"
         , __CurrentHotIf := "", __RegisteredHotstrings := [], __HotstringsReadyToTrigger := []
@@ -55,9 +55,9 @@ class RegExHotstring {
         , __ActiveEndChars := "", __ActiveNoModifierEndChars := "", __ActiveModifierEndChars := ""
         , __SpecialChars := "^+!#{}", __ShiftPressed := 0
     /**
-     * Registers or modifies a RegExHotstring. See documentation for `Hotstring` for more information.
+     * Registers or modifies a XHotstring. See documentation for `Hotstring` for more information.
      * @param {String} Trigger Either a trigger string in the format `:options:trigger`, or NewOptions that
-     *  sets new options for all new RegExHotstrings, or SubFunction ("MouseReset", "Reset", or "EndChars")
+     *  sets new options for all new XHotstrings, or SubFunction ("MouseReset", "Reset", or "EndChars")
      * 
      *  Options (follow with a zero to turn them off):
      *  > `M0` (M followed by a zero): Turn off replacing RegEx back-references in the replacement word.
@@ -78,8 +78,8 @@ class RegExHotstring {
      * @param {String | Func} Replacement The replacement string or a callback function. The replacement string can contain RegEx
      *  match groups (see `RegExReplace` for more information). 
      *  The callback function `Callback(TriggerMatch, EndChar, HS)` will receive a RegExMatch object
-     *  TriggerMatch, the ending character, and a RegExHotstring object containing information about the
-     *  RegExHotstring that matched.
+     *  TriggerMatch, the ending character, and a XHotstring object containing information about the
+     *  XHotstring that matched.
      * @param {String | 'On' | 'Off' | 'Toggle'} OnOffToggle 
      * @param {Func} SendFunction The Send function to use for sending the replacement. Default is `Send`.
      * @returns {Object} The hotstring object {Trigger, UnmodifiedTrigger, TriggerWithOptions, Replacement, HotIf, SendFunction, Options, Active}
@@ -101,7 +101,7 @@ class RegExHotstring {
         }
         TriggerWithOptions := Trigger, Options := Options[1], Trigger := RegExReplace(Trigger, "^:([^:]*):",,, 1)
         if Trigger = ""
-            throw ValueError("Invalid RegExHotstring trigger", "Can't be empty", -1)
+            throw ValueError("Invalid XHotstring trigger", "Can't be empty", -1)
         for HS in this.__RegisteredHotstrings {
             if HS.TriggerWithOptions == TriggerWithOptions && HS.HotIf == this.__CurrentHotIf {
                 if IsSet(Replacement)
@@ -116,7 +116,7 @@ class RegExHotstring {
             }
         }
         if !IsSet(Replacement)
-            throw ValueError("No such RegExHotstring registered",, -1)
+            throw ValueError("No such XHotstring registered",, -1)
 
         opts := this.__DefaultOptions.Clone()
         this.__RegisteredHotstrings.Push(HS := {TriggerWithOptions:TriggerWithOptions, Trigger:Trigger, UnmodifiedTrigger:Trigger, Replacement:Replacement, HotIf:this.__CurrentHotIf, SendFunction:SendFunction ?? this.SendFunction, Options:opts, Active:1})
@@ -135,7 +135,7 @@ class RegExHotstring {
                 return
             }
         }
-        throw ValueError("No such RegExHotstring registered",, -1)
+        throw ValueError("No such XHotstring registered",, -1)
     }
     /**
      * Sets a new HotIf callback and returns the previous one
@@ -152,7 +152,7 @@ class RegExHotstring {
         get => this.__MouseReset
         set => (this.__SetMouseReset(Value), this.__MouseReset := !!Value)
     }
-    ; Gets or sets new end-characters. This affects all registered RegExHotstrings
+    ; Gets or sets new end-characters. This affects all registered XHotstrings
     static EndChars {
         get => this.__EndChars
         set {
@@ -180,7 +180,7 @@ class RegExHotstring {
             }
         }
     }
-    ; Can be used to resume the hotstring recognizer after stopping it with `RegExHotstring.Stop()`
+    ; Can be used to resume the hotstring recognizer after stopping it with `XHotstring.Stop()`
     static Start() {
         if this.IsActive
             return
