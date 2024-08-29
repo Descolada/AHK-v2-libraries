@@ -409,12 +409,12 @@ class XHotstring {
 
     static __SetMouseReset(NewValue) {
         static MouseRIProc := this.__MouseRawInputProc.Bind(this), DevSize := 8 + A_PtrSize, RIDEV_INPUTSINK := 0x00000100
-        , RIDEV_REMOVE := 0x00000001, RAWINPUTDEVICE := Buffer(DevSize, 0), Active := 0
+        , RIDEV_REMOVE := 0x00000001, RAWINPUTDEVICE := Buffer(DevSize, 0), Active := 0, g := Gui()
         if !!NewValue = Active
             return
         if Active := !!NewValue {
             ; Register mouse for WM_INPUT messages.
-            NumPut("UShort", 1, "UShort", 2, "Uint", RIDEV_INPUTSINK, "Ptr", A_ScriptHwnd, RAWINPUTDEVICE)
+            NumPut("UShort", 1, "UShort", 2, "Uint", RIDEV_INPUTSINK, "Ptr", g.hWnd, RAWINPUTDEVICE)
             DllCall("RegisterRawInputDevices", "Ptr", RAWINPUTDEVICE, "UInt", 1, "UInt", DevSize)
             OnMessage(0x00FF, MouseRIProc)
         } else {
