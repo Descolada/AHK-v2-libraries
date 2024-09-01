@@ -164,10 +164,10 @@ class JAB {
     ; retrieves the root element from a window
     ElementFromHandle(WinTitle:="") {
         if !DllCall(this.DllPath "\isJavaWindow", "ptr", hWnd := WinGetID(WinTitle), "cdecl int")
-            throw TargetError("The specified window is not a Java window")
+            throw TargetError("The specified window is not a Java window", -1)
         if (DllCall(this.DllPath "\getAccessibleContextFromHWND", "ptr", hWnd := WinExist(WinTitle), "Int*", &vmID:=0, this.__acPType, &ac:=0, "Cdecl Int"))
             return JAB.JavaAccessibleContext(vmID, ac, this)
-        throw Error("Failed to get accessible context for the specified window")
+        throw Error("Failed to get accessible context for the specified window", -1)
     }
 
     static GetFocusedElement() => this.base.GetFocusedElement()
@@ -204,17 +204,40 @@ class JAB {
             pt64 := y << 32 | (x & 0xFFFFFFFF)
         hWnd := DllCall("GetAncestor", "Ptr", DllCall("user32.dll\WindowFromPoint", "int64",  pt64, "ptr"), "UInt", 2, "ptr")
         if !this.IsJavaWindow(hWnd)
-            return 0
+            throw Error("The window at the specified point is not a Java window", -1)
 
         baseEl := this.ElementFromHandle(hWnd)
-        if DllCall(baseEl.JAB.DllPath "\getAccessibleContextAt", "Int", baseEl.__vmID, baseEl.JAB.__acType, baseEl.__ac, "Int", x, "Int", y, baseEl.JAB.__acPType, &ac:=0, "Cdecl Int") && ac
-			baseEl := JAB.JavaAccessibleContext(baseEl.__vmID, ac, baseEl.JAB)
+        if DllCall(baseEl.JAB.DllPath "\getAccessibleContextAt", "Int", baseEl.__vmID, baseEl.JAB.__acType, baseEl.__ac, "Int", x, "Int", y, baseEl.JAB.__acPType, &ac:=0, "Cdecl Int") && ac {
+			el := JAB.JavaAccessibleContext(baseEl.__vmID, ac, baseEl.JAB), loc := el.Location
+            if x >= loc.x && y >= loc.y && x <= (loc.x+loc.w) && y <= (loc.y+loc.h)
+                baseEl := el
+        }
         
+        local el, evaluate := [baseEl], result := baseEl
+        while evaluate.Length {
+            el := evaluate.RemoveAt(1), loc := el.Location
+            if x >= loc.x && y >= loc.y && x <= (loc.x+loc.w) && y <= (loc.y+loc.h)
+                evaluate.Push(el.Children*), result := el
+        }
+        return result
+    }
+
+    static SmallestElementFromPoint(x?, y?) => this.base.SmallestElementFromPoint(x?, y?)
+    SmallestElementFromPoint(x?, y?) {
+        if !(IsSet(x) && IsSet(y))
+            DllCall("GetCursorPos", "int64P", &pt64:=0), x := 0xFFFFFFFF & pt64, y := pt64 >> 32
+        else
+            pt64 := y << 32 | (x & 0xFFFFFFFF)
+        hWnd := DllCall("GetAncestor", "Ptr", DllCall("user32.dll\WindowFromPoint", "int64",  pt64, "ptr"), "UInt", 2, "ptr")
+        if !this.IsJavaWindow(hWnd)
+            throw Error("The window at the specified point is not a Java window", -1)
+
+        baseEl := this.ElementFromHandle(hWnd)
         local el, evaluate := baseEl.GetDescendants(5), smallest := baseEl, smallestSize := 100000000
         for el in evaluate {
             loc := el.Location
             if x >= loc.x && y >= loc.y && x <= (loc.x+loc.w) && y <= (loc.y+loc.h) {
-                if (size := loc.w*loc.h) < smallestSize
+                if (size := loc.w*loc.h) <= smallestSize
                     smallest := el, smallestSize := size
             }
         }
@@ -390,6 +413,8 @@ class JAB {
         IsHypertextInterfaceAvailable => (this.__UpdateLastElementInfo(), this.__LastElementInfo.IsHypertextInterfaceAvailable)
         AvailableInterfaces => (this.__UpdateLastElementInfo(), this.__LastElementInfo.AvailableInterfaces)
 
+        IsVisible => (InStr(this.States, "visible") && (loc := this.Location) && loc.w != -1 && loc.h != -1)
+
         KeyBindings {
             get {
                 static KeyMap := Map(8, "Backspace", 127, "Delete", 40, "Down", 35, "End", 36, "Home", 155, "Insert", 225, "KeypadDown", 226, "KeypadLeft", 227, "KeypadRight", 224, "KeypadUp", 37, "Left", 34, "PgDown", 33, "PgUp", 39, "Right", 38, "Up")
@@ -402,7 +427,7 @@ class JAB {
                     }
                     return (this.DefineProp("KeyBindings", {value:SubStr(str, 1, -2)}), this.KeyBindings)
                 }
-                return ""
+                throw Error("Unable to get key bindings", -1)
             }
         }
 
@@ -413,10 +438,10 @@ class JAB {
             get {
                 try {
                     if (((pos := this.Location).x==-1) && (pos.y==-1) && (pos.w==-1) && (pos.h==-1))
-                        return 0
+                        return false
                 } catch
-                    return 0
-                return 1
+                    return false
+                return true
             }
         }
 
@@ -528,35 +553,32 @@ class JAB {
             set => this.SetTextContents(Value)
         }
 
-        ; retrieves information about a certain text element as an object with the keys:
-        ; CharCount, CaretIndex, IndexAtPoint
+        ; Retrieves information about a certain text element as an object with the keys {CharCount, CaretIndex, IndexAtPoint}
         GetTextInfo(x:=0, y:=0) {
             if (DllCall(this.JAB.DllPath "\getAccessibleTextInfo", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(12, 0), "Int", x, "Int", y, "Cdecl Int"))
                 return {CharCount:NumGet(Info.Ptr, 0, "Int"), CaretIndex:NumGet(Info.Ptr, 4, "Int"), IndexAtPoint:NumGet(Info.Ptr, 8, "Int")}
-            return 0
+            throw Error("Unable to get text info", -1, "Is TextInterface available?")
         }
 
-        ; retrieves the text items as an object with the keys:
-        ; letter, word, sentence
+        ; Retrieves the text items as an object with the keys {letter, word, sentence}
         GetTextItems(Index) {
             If (DllCall(this.JAB.DllPath "\getAccessibleTextItems", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(2562, 0), "Int", Index, "Cdecl Int"))
                 return {letter:Chr(NumGet(Info.Ptr, 0, "UChar")), word:StrGet(Info.Ptr+2, JAB.SHORT_STRING_SIZE, "UTF-16"), sentence:StrGet(Info.Ptr+2+JAB.SHORT_STRING_SIZE*2, JAB.MAX_STRING_SIZE, "UTF-16")}
-            return 0
+            throw Error("Unable to get text items", -1, "Is TextInterface available?")
         }
 
-        ; retrieves the currently selected text and its start and end index as an object with the keys:
-        ; SelectionStartIndex, SelectionEndIndex, SelectedText
+        ; Retrieves the currently selected text and its start and end index as an object with the keys {SelectionStartIndex, SelectionEndIndex, SelectedText}
         GetTextSelectionInfo() {
             if (DllCall(this.JAB.DllPath "\getAccessibleTextSelectionInfo", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(this.JAB.MAX_STRING_SIZE*2+8, 0), "Cdecl Int"))
                 return {SelectionStartIndex:NumGet(Info.Ptr, 0, "Int"), SelectionEndIndex:NumGet(Info.Ptr, 4, "Int"), SelectedText:StrGet(Info.Ptr+8, this.JAB.MAX_STRING_SIZE, "UTF-16")}
-            return 0
+            throw Error("Unable to get text selection info", -1, "Is TextInterface available?")
         }
 
-        ; retrieves the text attributes as an object with the keys:
-        ; bold, italic, underline, strikethrough, superscript, subscript,
+        ; Retrieves the text attributes as an object with the keys
+        ; {bold, italic, underline, strikethrough, superscript, subscript,
         ; backgroundColor, foregroundColor, fontFamily, fontSize,
         ; alignment, bidiLevel, firstLineIndent, leftIndent, rightIndent,
-        ; lineSpacing, spaceAbove, spaceBelow, fullAttributesString
+        ; lineSpacing, spaceAbove, spaceBelow, fullAttributesString}
         GetTextAttributes() {
             if (DllCall(this.JAB.DllPath "\getAccessibleTextAttributes", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(3644, 0), "Cdecl Int"))
                 return {
@@ -580,31 +602,29 @@ class JAB {
                     spaceBelow:NumGet(Info.Ptr, Offset+=4, "Float"),
                     fullAttributesString:StrGet(Info.Ptr+Offset+4, JAB.MAX_STRING_SIZE, "UTF-16")
                 }
-            return 0
+                throw Error("Unable to get text attributes", -1, "Is TextInterface available?")
         }
 
-        ; retrieves the location of position Index as an object with the keys:
-        ; X, Y, W, H
-        GetTextRect(Index) {
+        ; Retrieves the location of text at position Index as an object with the keys {X, Y, W, H}
+        GetTextPos(Index) {
             if (DllCall(this.JAB.DllPath "\getAccessibleTextRect", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(16, 0), "Int", Index, "Cdecl Int"))
                 return {X:NumGet(Info.Ptr, 0, "Int"), Y:NumGet(Info.Ptr, 4, "Int"), W:NumGet(Info.Ptr, 8, "Int"), H:NumGet(Info.Ptr, 12, "Int")}
-            return 0
+            throw Error("Unable to get text location", -1, "Is TextInterface available?")
         }
 
-        ; retrieves text between start and end index
+        ; Retrieves text between start and end index
         GetTextRange(startc:=0, endc:=0) {
             TInfo := this.GetTextInfo(), startc := Max(0, startc), endc := Min(TInfo.CharCount-1, endc = 0 ? 0xFFFFFFFF : endc), len:=endc-startc
             if (DllCall(this.JAB.DllPath "\getAccessibleTextRange", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", startc, "Int", endc, "Ptr", Txt := Buffer(len*2, 0), "short", len, "Cdecl Int"))
                 return StrGet(Txt, len, "UTF-16")
-            return ""
+            throw Error("Unable to get text range", -1, "Is TextInterface available?")
         }
 
-        ; retrieves the start and end index of the line containing Index as an object with the keys:
-        ; StartPos, EndPos
+        ; Retrieves the start and end index of the line at Index as an object with the keys {StartPos, EndPos}
         GetTextLineBounds(Index) {
             if (DllCall(this.JAB.DllPath "\getAccessibleTextLineBounds", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int*", &StartPos:=0, "Int*", &EndPos:=0, "Cdecl Int"))
                 return {StartPos:StartPos, EndPos:EndPos}
-            return 0
+            throw Error("Unable to get text line bounds", -1, "Is TextInterface available?")
         }
 
         SelectTextRange(startIndex, endIndex) => DllCall(this.JAB.DllPath "\selectTextRange", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", startIndex, "Int", endIndex, "Cdecl Int")
@@ -633,13 +653,13 @@ class JAB {
                     spaceBelow:NumGet(Info.Ptr, Offset+=4, "Float"),
                     fullAttributesString:StrGet(Info.Ptr+Offset+4, JAB.MAX_STRING_SIZE, "UTF-16")
                 }
-            return 0
+            throw Error("Unable to get text attributes in range", -1, "Is TextInterface available?")
         }
 
         GetCaretLocation(Index:=1) {
             if (DllCall(this.JAB.DllPath "\getCaretLocation", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(16, 0), "Int", Index-1, "Cdecl Int"))
                 return {X:NumGet(Info.Ptr, 0, "Int"), Y:NumGet(Info.Ptr, 4, "Int"), W:NumGet(Info.Ptr, 8, "Int"), H:NumGet(Info.Ptr, 12, "Int")}
-            return 0
+            throw Error("Unable to get caret location", -1, "Is TextInterface available?")
         }
 
         SetCaretPosition(Position) => DllCall(this.JAB.DllPath "\setCaretPosition", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", position, "Cdecl Int")
@@ -665,7 +685,7 @@ class JAB {
                     }
                     return links
                 }
-                return 0
+                throw Error("Unable to get hyperlinks", -1, "Is HypertextInterface available?")
             }
         }
 
@@ -688,16 +708,15 @@ class JAB {
                 }
                 return relations
             }
-            
-            return 0
+            throw Error("Unable to get relations", -1, "Is RelationsInterface available?")
         }
 
-        ;; Table Interface : NOT IMPLEMENTED
+        ;; Table Interface
 
         GetTable() {
             if DllCall(this.JAB.DllPath "\getAccessibleTableInfo", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
                 return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
-            throw Error("Unable to get table info", -1)
+            throw Error("Unable to get table info", -1, "Is TableInterface available?")
         }
 
         ;; Selection Interface
@@ -708,7 +727,7 @@ class JAB {
         GetSelection(i) {
             if (ac := DllCall(this.JAB.DllPath "\getAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", i-1, "Cdecl " this.JAB.__acType))
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
-            return 0
+            throw Error("Unable to get selection", -1, "Is SelectionInterface available?")
         }
         SelectionCount => DllCall(this.JAB.DllPath "\getAccessibleSelectionCountFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl int")
         IsChildSelected(i) => DllCall(this.JAB.DllPath "\isAccessibleChildSelectedFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", i-1, "Cdecl int")
@@ -729,7 +748,7 @@ class JAB {
                     }
                     return arr
                 }
-                return []
+                throw Error("Unable to get actions", -1, "Is ActionInterface available?")
             }
         }
 
@@ -880,7 +899,7 @@ class JAB {
         DumpAll(delimiter:=" ", maxDepth:=-1) => this.Dump(5, delimiter, maxDepth)
 
         /**
-         * Returns an element from a path string (comma-separated integers and/or RoleText values)
+         * Returns an element from a path string (comma-separated integers and/or Role values)
          * @param ChildPath Comma-separated indexes for the tree traversal. 
          *     Instead of an index, RoleText is also permitted.
          * @returns {JAB.JavaAccessibleContext}
@@ -1481,7 +1500,7 @@ class JAB {
                 table.columnCount := NumGet(tableInfo, caller.JAB.__acSize*2+4, "int")
                 return table
             }
-            return 0
+            throw Error("Unable to get table", -1, "Is TableInterface available?")
         }
         static __GetCell(caller, tableCellInfo) => (offset := 0, cell := JAB.JavaAccessibleCell(caller.__vmID, NumGet(tableCellInfo.Ptr, caller.JAB.__acType), caller.JAB),
             Cell.index:=NumGet(tableCellInfo.Ptr, offset+=caller.JAB.__acSize, "int")+1,
@@ -1498,14 +1517,14 @@ class JAB {
                 throw ValueError("Invalid column number", -1)
             if DllCall(this.JAB.DllPath "\getAccessibleTableCellInfo", "Int", this.__vmID, this.JAB.__acType, this.__obj, "int", row-1, "int", column-1, "ptr", tableCellInfo:=Buffer(32,0), "Cdecl Int")
                 return JAB.JavaAccessibleTable.__GetCell(this, tableCellInfo)
-            throw Error("Unable to get cell", -1)
+            throw Error("Unable to get cell", -1, "Is TableInterface available?")
         }
 
         RowHeader {
             get {
                 if DllCall(this.JAB.DllPath "\getAccessibleTableRowHeader", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
                     return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
-                throw Error("Unable to get table", -1)
+                throw Error("Unable to get table", -1, "Is TableInterface available?")
             }
         }
 
@@ -1513,7 +1532,7 @@ class JAB {
             get {
                 if DllCall(this.JAB.DllPath "\getAccessibleTableColumnHeader", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
                     return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
-                throw Error("Unable to get table", -1)
+                throw Error("Unable to get table", -1, "Is TableInterface available?")
             }
         }
 
@@ -1522,7 +1541,7 @@ class JAB {
                 throw ValueError("Invalid row number", -1)
             if ac := DllCall(this.JAB.DllPath "\getAccessibleTableRowDescription", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", row-1, "Cdecl " this.JAB.__acType)
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
-            throw Error("Unable to get row", -1)
+            throw Error("Unable to get row", -1, "Is TableInterface available?")
         }
 
         GetColumn(column) {
@@ -1530,7 +1549,7 @@ class JAB {
                 throw ValueError("Invalid column number", -1)
             if ac := DllCall(this.JAB.DllPath "\getAccessibleTableColumnDescription", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", column-1, "Cdecl " this.JAB.__acType)
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
-            throw Error("Unable to get column", -1)
+            throw Error("Unable to get column", -1, "Is TableInterface available?")
         }
 
         RowSelectionCount => DllCall(this.JAB.DllPath "\getAccessibleTableRowSelectionCount", "int", this.__vmID, this.JAB.__acType, this.__obj, "Cdecl Int")
@@ -1542,7 +1561,7 @@ class JAB {
                     selections.Push(NumGet(buf.ptr, (A_Index-1)*4, "int")+1)
                 return selections
             }
-            return 0
+            throw Error("Unable to get selected rows", -1, "Is TableInterface available?")
         }
         GetSelectedColumns() {
             if DllCall(this.JAB.DllPath "\getAccessibleTableColumnSelections", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", c := this.ColumnSelectionCount, "ptr", buf := Buffer(4*c) "Cdecl Int") {
@@ -1551,7 +1570,7 @@ class JAB {
                     selections.Push(NumGet(buf.ptr, (A_Index-1)*4, "int")+1)
                 return selections
             }
-            return 0
+            throw Error("Unable to get selected columns", -1, "Is TableInterface available?")
         }
         IsRowSelected(row) => DllCall(this.JAB.DllPath "\isAccessibleTableRowSelected", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", row-1, "Cdecl Int")
         IsColumnSelected(column) => DllCall(this.JAB.DllPath "\isAccessibleTableColumnSelected", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", column-1, "Cdecl Int")
@@ -1567,6 +1586,7 @@ class JAB {
     class Viewer {
         __New() {
             this.Stored := {mwId:0, FilteredTreeView:Map(), TreeView:Map()}
+            this.OnlyVisibleElements := false
             this.Capturing := False
             this.gViewer := Gui("AlwaysOnTop Resize","JABViewer")
             this.gViewer.OnEvent("Close", (*) => ExitApp())
@@ -1583,7 +1603,7 @@ class JAB {
             this.LVProps.OnEvent("ContextMenu", LV_CopyTextMethod)
             this.LVProps.ModifyCol(1,100)
             this.LVProps.ModifyCol(2,140)
-            for _, v in this.DefaultLVPropsItems := ["Role", "LocalizedRole", "Name", "Description", "States", "LocalizedStates", "Value", "Location", "AvailableInterfaces", "KeyBindings", "Id"]
+            for _, v in this.DefaultLVPropsItems := ["Role", "LocalizedRole", "Name", "Description", "States", "LocalizedStates", "Value", "Location", "AvailableInterfaces", "KeyBindings", "IsVisible", "Id"]
                 this.LVProps.Add(,v,"")
             this.ButCapture := this.gViewer.Add("Button", "xp+60 y+10 w130", "Start capturing (F1)")
             this.ButCapture.OnEvent("Click", this.CaptureHotkeyFunc := this.GetMethod("ButCapture_Click").Bind(this))
@@ -1599,6 +1619,8 @@ class JAB {
             this.TextFilterTVContext := this.gViewer.Add("Text", "x275 y428", "Filter:")
             this.EditFilterTVContext := this.gViewer.Add("Edit", "x305 y425 w100")
             this.EditFilterTVContext.OnEvent("Change", this.GetMethod("EditFilterTV_Change").Bind(this))
+            this.CBVisibleElements := this.gViewer.Add("Checkbox", "x+8 yp+4", "Visible elements")
+            this.CBVisibleElements.OnEvent("Click", this.GetMethod("CBVisibleElements_Change").Bind(this))
             this.gViewer.Show()
         }
         ; Resizes window controls when window is resized
@@ -1650,6 +1672,9 @@ class JAB {
                 ToolTip("Copied: " (A_Clipboard := SubStr(this.SBMain.Text, 9)))
                 SetTimer((*) => ToolTip(), -3000)
             }
+        }
+        CBVisibleElements_Change(GuiCtrlObj, Info) {
+            this.OnlyVisibleElements := GuiCtrlObj.Value
         }
         ; Stops capturing elements under mouse, unhooks CaptureCallback
         StopCapture(GuiCtrlObj:=0, Info:=0) {
@@ -1710,7 +1735,7 @@ class JAB {
             JAB.ClearAllHighlights() ; Clear
             oContext.Highlight(0) ; Indefinite show
             this.LVProps.Delete()
-            Location := {x:"N/A",y:"N/A",w:"N/A",h:"N/A"}, Role := "N/A", LocalizedRole := "N/A", Name := "N/A", Description := "N/A", States := "N/A", LocalizedStates := "N/A", Value := "N/A", Id := "N/A", AvailableInterfaces := "", KeyBindings := "N/A"
+            Location := {x:"N/A",y:"N/A",w:"N/A",h:"N/A"}, Role := "N/A", LocalizedRole := "N/A", Name := "N/A", Description := "N/A", States := "N/A", LocalizedStates := "N/A", Value := "N/A", Id := "N/A", AvailableInterfaces := "N/A", KeyBindings := "N/A", IsVisible := "N/A"
             for _, v in this.DefaultLVPropsItems {
                 try %v% := oContext.Cached%v%
                 this.LVProps.Add(,v, v = "Location" ? ("x: " %v%.x " y: " %v%.y " w: " %v%.w " h: " %v%.h) : %v%)
@@ -1760,7 +1785,7 @@ class JAB {
             this.TVContext.Opt("-Redraw")
             this.TVContext.Delete()
             for index, oContext in this.Stored.TreeView {
-                for _, prop in ["RoleText", "Role", "Value", "Name", "StateText", "State", "DefaultAction", "Description", "KeyboardShortcut", "Help", "ChildId", "Identity"] {
+                for _, prop in this.DefaultLVPropsItems {
                     try {
                         if InStr(oContext.%Prop%, searchPhrase) {
                             if !parents.Has(prop)
@@ -1795,8 +1820,11 @@ class JAB {
         RecurseTreeView(oContext, parent:=0, path:="") {
             oContext.BuildUpdatedCache(this.DefaultLVPropsItems)
             this.Stored.TreeView[TWEl := this.TVContext.Add(this.GetShortDescription(oContext), parent, "Expand")] := oContext.DefineProp("Path", {value:path})
-            for k, v in oContext
-                this.RecurseTreeView(v, TWEl, path (path?",":"") k)
+            i := 0
+            for v in oContext {
+                if !this.OnlyVisibleElements || v.IsVisible
+                    ++i, this.RecurseTreeView(v, TWEl, path (path?",":"") i)
+            }
         }
         ; Creates a short description string for the JAB tree elements
         GetShortDescription(oContext) {
