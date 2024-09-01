@@ -4,11 +4,7 @@ if (!A_IsCompiled and A_LineFile=A_ScriptFullPath)
     JAB.Viewer()
 
 class JAB {
-    DLLVersion:=""
-    , DLLHandle:=""
-    , acType:="Int64"
-    , acPType:="Int64*"
-    , acSize:=8
+    DllPath:=""
     JavaVersion => (this.DefineProp("JavaVersion", {value:RegRead("HKLM\SOFTWARE" (A_PtrSize = 8 ? "\Wow6432Node" : "") "\JavaSoft\Java Runtime Environment", "CurrentVersion", "")}), this.JavaVersion)
     JavaHome => (this.DefineProp("JavaHome", {value:RegRead("HKLM\SOFTWARE" (A_PtrSize = 8 ? "\Wow6432Node" : "") "\JavaSoft\Java Runtime Environment\" this.JavaVersion, "JavaHome", "")}), this.JavaHome)
 
@@ -87,14 +83,6 @@ class JAB {
     , ACCESSIBLE_EDITBAR:="editbar"
     , PROGRESS_MONITOR:="progress monitor"
 
-    static PropertyFromValue(obj, value) {
-        for k, v in obj.OwnProps()
-            if value == v
-                return k
-        throw UnsetItemError("Property item `"" value "`" not found!", -1)
-    }
-    static PropertyValueGetter := {get: (obj, value) => JAB.PropertyFromValue(obj, value)}
-
     ; MatchMode constants used in condition objects
     static MatchMode := {
         StartsWith:1,
@@ -119,6 +107,164 @@ class JAB {
         PostOrderLastToFirst:3
     }
 
+    static __New() => this.base := JAB()
+    __New(AutoEnableJABSwitch:=1, dll?, ForceLegacy:=0) {
+        if IsSet(dll) {
+            this.DllPath:=StrReplace(dll, ".dll")
+            this.__DllHandle:=DllCall("LoadLibrary", "Str", dll, "ptr")
+        } else {
+            if ForceLegacy
+                LoadLegacy()
+            else if (A_PtrSize=8) {
+                this.DllPath:="WindowsAccessBridge-64"
+                this.__DllHandle:=DllCall("LoadLibrary", "Str", this.DllPath ".dll", "ptr")
+                if !this.__DllHandle && this.JavaHome {
+                    this.DllPath := this.JavaHome "\bin\" this.DllPath ".dll"
+                    this.__DllHandle:=DllCall("LoadLibrary", "Str", this.DllPath, "ptr")
+                }
+            } else {
+                this.DllPath:="WindowsAccessBridge-32"
+                this.__DllHandle:=DllCall("LoadLibrary", "Str", this.DllPath ".dll", "ptr")
+                if !this.__DllHandle && this.JavaHome {
+                    this.DllPath := this.JavaHome "\bin\" this.DllPath ".dll"
+                    this.__DllHandle:=DllCall("LoadLibrary", "Str", this.DllPath, "ptr")
+                }
+                if (!this.__DllHandle) 
+                    LoadLegacy()
+            }
+        }
+
+        if !this.__DllHandle
+            throw Error("Failed to load JAB")
+
+        if AutoEnableJABSwitch {
+            try RunWait("jabswitch /enable",, "Hide")
+            catch {
+                try RunWait(this.JavaHome "\bin\jabswitch /enable",, "Hide")
+            }
+        }
+        ; Start up the access bridge
+        If (!DllCall(this.DllPath "\Windows_run", "Cdecl Int")) {
+            throw Error("Initializing JAB failed")
+        }
+        _DllPath := this.DllPath
+        this.DllPath := "Java Access Bridge requires 200ms to startup! No JAB methods may be used before that."
+        SetTimer((*) => this.DllPath := _DllPath, -200)
+
+        LoadLegacy() {
+            this.DllPath:="WindowsAccessBridge"
+            this.__DllHandle:=DllCall("LoadLibrary", "Str", this.DllPath ".dll", "ptr")
+            this.__acType:="Int"
+            this.__acPType:="Int*"
+            this.__acSize:=4
+        }
+    }
+
+    static ElementFromHandle(WinTitle:="") => this.base.ElementFromHandle(WinTitle)
+    ; retrieves the root element from a window
+    ElementFromHandle(WinTitle:="") {
+        if !DllCall(this.DllPath "\isJavaWindow", "ptr", hWnd := WinGetID(WinTitle), "cdecl int")
+            throw TargetError("The specified window is not a Java window")
+        if (DllCall(this.DllPath "\getAccessibleContextFromHWND", "ptr", hWnd := WinExist(WinTitle), "Int*", &vmID:=0, this.__acPType, &ac:=0, "Cdecl Int"))
+            return JAB.JavaAccessibleContext(vmID, ac, this)
+        throw Error("Failed to get accessible context for the specified window")
+    }
+
+    static GetFocusedElement() => this.base.GetFocusedElement()
+    GetFocusedElement() {
+        if !(hWnd := this.GetFocusedJavaWindow())
+            return 0
+        if (DllCall(this.DllPath "\getAccessibleContextWithFocus", "ptr", hwnd, "Int*", &vmID:=0, this.__acPType, &ac:=0, "Cdecl Int"))
+            return JAB.JavaAccessibleContext(vmID, ac, this)
+        return 0
+    }
+
+    static IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") => this.base.IsJavaWindow(WinTitle, WinText, ExcludeTitle, ExcludeText)
+    IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") => DllCall(this.DllPath "\isJavaWindow", "Ptr", WinGetID(WinTitle, WinText, ExcludeTitle, ExcludeText), "Cdecl Int")
+
+    static GetFocusedJavaWindow() => this.base.GetFocusedJavaWindow()
+    GetFocusedJavaWindow() {
+        if this.IsJavaWindow(hWnd := WinExist("A"))
+            return hWnd
+        else {
+            if (this.IsJavaWindow(hWnd := ControlGetFocus(hWnd)))
+                return hWnd
+        }
+        return 0
+    }
+
+    static CompareElements(el1, el2) => this.base.CompareElements(el1, el2)
+    CompareElements(el1, el2) => el1 is JAB.JavaAccessibleContext && el2 is JAB.JavaAccessibleContext && el1.__vmID == el2.__vmID && DllCall(this.DllPath "\isSameObject", "Int", el1.__vmID, this.__acType, el1.__ac, this.__acType, el2.__ac, "Cdecl Int")
+
+    static ElementFromPoint(x?, y?) => this.base.ElementFromPoint(x?, y?)
+    ElementFromPoint(x?, y?) {
+        if !(IsSet(x) && IsSet(y))
+            DllCall("GetCursorPos", "int64P", &pt64:=0), x := 0xFFFFFFFF & pt64, y := pt64 >> 32
+        else
+            pt64 := y << 32 | (x & 0xFFFFFFFF)
+        hWnd := DllCall("GetAncestor", "Ptr", DllCall("user32.dll\WindowFromPoint", "int64",  pt64, "ptr"), "UInt", 2, "ptr")
+        if !this.IsJavaWindow(hWnd)
+            return 0
+
+        baseEl := this.ElementFromHandle(hWnd)
+        if DllCall(baseEl.JAB.DllPath "\getAccessibleContextAt", "Int", baseEl.__vmID, baseEl.JAB.__acType, baseEl.__ac, "Int", x, "Int", y, baseEl.JAB.__acPType, &ac:=0, "Cdecl Int") && ac
+			baseEl := JAB.JavaAccessibleContext(baseEl.__vmID, ac, baseEl.JAB)
+        
+        local el, evaluate := baseEl.GetDescendants(5), smallest := baseEl, smallestSize := 100000000
+        for el in evaluate {
+            loc := el.Location
+            if x >= loc.x && y >= loc.y && x <= (loc.x+loc.w) && y <= (loc.y+loc.h) {
+                if (size := loc.w*loc.h) < smallestSize
+                    smallest := el, smallestSize := size
+            }
+        }
+        return smallest
+    }
+
+    static ClearAllHighlights() => this.JavaAccessibleContext.Prototype.Highlight("clearall")
+
+    __EventHandlers := JAB.Mapi(
+        "FocusGained", 0, 
+        "FocusLost", 0, 
+        "CaretUpdate", 0, 
+        "MouseClicked", 0, 
+        "MouseEntered", 0, 
+        "MouseExited", 0, 
+        "MousePressed", 0, 
+        "MouseReleased", 0, 
+        "MenuCanceled", 0, 
+        "MenuDeselected", 0, 
+        "MenuSelected", 0, 
+        "PopupMenuCanceled", 0, 
+        "PopupMenuWillBecomeInvisible", 0, 
+        "PopupMenuWillBecomeVisible", 0, 
+        "PropertyNameChange", 0, 
+        "PropertyDescriptionChange", 0, 
+        "PropertyStateChange", 0, 
+        "PropertyValueChange", 0, 
+        "PropertySelectionChange", 0, 
+        "PropertyTextChange", 0, 
+        "PropertyCaretChange", 0, 
+        "PropertyVisibleDataChange", 0, 
+        "PropertyChildChange", 0, 
+        "PropertyActiveDescendentChange", 0, 
+        "PropertyTableModelChange", 0,
+        "JavaShutdown", 0)
+    static RegisterEvent(eventName, handler:=0) => this.base.RegisterEvent(eventName, handler)
+    RegisterEvent(eventName, handler:=0) {
+        if !this.__EventHandlers.Has(eventName)
+            throw ValueError("Non-existant event name", -1)
+        if this.__EventHandlers[eventName]
+            CallbackFree(this.__EventHandlers[eventName])
+        DllCall(this.DllPath "\set" eventName "FP", "Ptr", this.__EventHandlers[eventName] := handler ? CallbackCreate(this.__HandleEvent.Bind(this, handler), "CDecl", 3) : 0, "Cdecl")
+    }
+
+    ; X can be pt64 as well, in which case Y should be omitted
+    static WindowFromPoint(X, Y?) { ; by SKAN and Linear Spoon
+        return DllCall("GetAncestor", "Ptr", DllCall("user32.dll\WindowFromPoint", "Int64", IsSet(Y) ? (Y << 32 | (X & 0xFFFFFFFF)) : X), "UInt", 2, "Ptr")
+    }
+
+    ;; Private classes and methods
     class TypeValidation {
         static Element(arg) {
             if !arg || (arg is JAB.JavaAccessibleContext)
@@ -165,123 +311,22 @@ class JAB {
         }
     }
 
-    static __New() => this.base := JAB()
-
-    __New(AutoEnableJABSwitch:=1, dll?, ForceLegacy:=0) {
-        if IsSet(dll) {
-            this.DLLVersion:=StrReplace(dll, ".dll")
-            this.DLLHandle:=DllCall("LoadLibrary", "Str", dll, "ptr")
-        } else {
-            if ForceLegacy
-                this.__LoadLegacy()
-            else if (A_PtrSize=8) {
-                this.DLLVersion:="WindowsAccessBridge-64"
-                this.DLLHandle:=DllCall("LoadLibrary", "Str", this.DLLVersion ".dll", "ptr")
-                if !this.DLLHandle && this.JavaHome {
-                    this.DLLVersion := this.JavaHome "\bin\" this.DLLVersion ".dll"
-                    this.DLLHandle:=DllCall("LoadLibrary", "Str", this.DLLVersion, "ptr")
-                }
-            } else {
-                this.DLLVersion:="WindowsAccessBridge-32"
-                this.DLLHandle:=DllCall("LoadLibrary", "Str", this.DLLVersion ".dll", "ptr")
-                if !this.DLLHandle && this.JavaHome {
-                    this.DLLVersion := this.JavaHome "\bin\" this.DLLVersion ".dll"
-                    this.DLLHandle:=DllCall("LoadLibrary", "Str", this.DLLVersion, "ptr")
-                }
-                if (!this.DLLHandle) 
-                    this.__LoadLegacy()
-            }
-        }
-
-        if !this.DLLHandle
-            throw Error("Failed to load JAB")
-        ; DLLHandle := {ptr:DLLHandle}.DefineProp("__Delete", {call:(this, *) => DllCall("FreeLibrary", "ptr", this)}) ; Probably no need to free the library
-
-        if AutoEnableJABSwitch {
-            try RunWait("jabswitch /enable",, "Hide")
-            catch {
-                try RunWait(this.JavaHome "\bin\jabswitch /enable",, "Hide")
-            }
-        }
-        ; Start up the access bridge
-        If (!DllCall(this.DLLVersion "\Windows_run", "Cdecl Int")) {
-            throw Error("Initializing JAB failed")
-        }
-        _DLLVersion := this.DLLVersion
-        this.DLLVersion := "Java Access Bridge requires 200ms to startup! No JAB methods may be used before that."
-        SetTimer((*) => this.DLLVersion := _DLLVersion, -200)
+    class Mapi extends Map {
+        CaseSense := 0
     }
 
-    __LoadLegacy() {
-        this.DLLVersion:="WindowsAccessBridge"
-        this.DLLHandle:=DllCall("LoadLibrary", "Str", this.DLLVersion ".dll", "ptr")
-        this.acType:="Int"
-        this.acPType:="Int*"
-        this.acSize:=4
+    __DllHandle:=""
+    , __acType:="Int64"
+    , __acPType:="Int64*"
+    , __acSize:=8
+
+    static __PropertyFromValue(obj, value) {
+        for k, v in obj.OwnProps()
+            if value == v
+                return k
+        throw UnsetItemError("Property item `"" value "`" not found!", -1)
     }
-
-    static ElementFromHandle(WinTitle:="") => this.base.ElementFromHandle(WinTitle)
-    ; retrieves the root element from a window
-    ElementFromHandle(WinTitle:="") {
-        if !DllCall(this.DLLVersion "\isJavaWindow", "ptr", hWnd := WinGetID(WinTitle), "cdecl int")
-            throw TargetError("The specified window is not a Java window")
-        if (DllCall(this.DLLVersion "\getAccessibleContextFromHWND", "ptr", hWnd := WinExist(WinTitle), "Int*", &vmID:=0, this.acPType, &ac:=0, "Cdecl Int"))
-            return JAB.JavaAccessibleContext(vmID, ac, this)
-        throw Error("Failed to get accessible context for the specified window")
-    }
-
-    static GetFocusedElement() => this.base.GetFocusedElement()
-    GetFocusedElement() {
-        if !(hWnd := this.GetFocusedJavaWindow())
-            return 0
-        if (DllCall(this.DLLVersion "\getAccessibleContextWithFocus", "ptr", hwnd, "Int*", &vmID:=0, this.acPType, &ac:=0, "Cdecl Int"))
-            return JAB.JavaAccessibleContext(vmID, ac, this)
-        return 0
-    }
-
-    static IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") => this.base.IsJavaWindow(WinTitle, WinText, ExcludeTitle, ExcludeText)
-    IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") => DllCall(this.DLLVersion "\isJavaWindow", "Ptr", WinGetID(WinTitle, WinText, ExcludeTitle, ExcludeText), "Cdecl Int")
-
-    static GetFocusedJavaWindow() => this.base.GetFocusedJavaWindow()
-    GetFocusedJavaWindow() {
-        if this.IsJavaWindow(hWnd := WinExist("A"))
-            return hWnd
-        else {
-            if (this.IsJavaWindow(hWnd := ControlGetFocus(hWnd)))
-                return hWnd
-        }
-        return 0
-    }
-
-    static CompareElements(el1, el2) => this.base.CompareElements(el1, el2)
-    CompareElements(el1, el2) => el1 is JAB.JavaAccessibleContext && el2 is JAB.JavaAccessibleContext && el1.__vmID == el2.__vmID && DllCall(this.DLLVersion "\isSameObject", "Int", el1.__vmID, this.acType, el1.__ac, this.acType, el2.__ac, "Cdecl Int")
-
-    static ElementFromPoint(x?, y?) => this.base.ElementFromPoint(x?, y?)
-    ElementFromPoint(x?, y?) {
-        if !(IsSet(x) && IsSet(y))
-            DllCall("GetCursorPos", "int64P", &pt64:=0), x := 0xFFFFFFFF & pt64, y := pt64 >> 32
-        else
-            pt64 := y << 32 | (x & 0xFFFFFFFF)
-        hWnd := DllCall("GetAncestor", "Ptr", DllCall("user32.dll\WindowFromPoint", "int64",  pt64, "ptr"), "UInt", 2, "ptr")
-        if !this.IsJavaWindow(hWnd)
-            return 0
-
-        baseEl := this.ElementFromHandle(hWnd)
-        if DllCall(baseEl.JAB.DLLVersion "\getAccessibleContextAt", "Int", baseEl.__vmID, baseEl.JAB.acType, baseEl.__ac, "Int", x, "Int", y, baseEl.JAB.acPType, &ac:=0, "Cdecl Int") && ac
-			baseEl := JAB.JavaAccessibleContext(baseEl.__vmID, ac, baseEl.JAB)
-        
-        local el, evaluate := baseEl.GetDescendants(5), smallest := baseEl, smallestSize := 100000000
-        for el in evaluate {
-            loc := el.Location
-            if x >= loc.x && y >= loc.y && x <= (loc.x+loc.w) && y <= (loc.y+loc.h) {
-                if (size := loc.w*loc.h) < smallestSize
-                    smallest := el, smallestSize := size
-            }
-        }
-        return smallest
-    }
-
-    static ClearAllHighlights() => this.JavaAccessibleContext.Prototype.Highlight("clearall")
+    static __PropertyValueGetter := {get: (obj, value) => JAB.__PropertyFromValue(obj, value)}
 
     static __ExtractNamedParameters(obj, params*) {
         local i := 0
@@ -295,58 +340,13 @@ class JAB {
         return 1
     }
 
-    __EventHandlers := JAB.Mapi(
-        "FocusGained", 0, 
-        "FocusLost", 0, 
-        "CaretUpdate", 0, 
-        "MouseClicked", 0, 
-        "MouseEntered", 0, 
-        "MouseExited", 0, 
-        "MousePressed", 0, 
-        "MouseReleased", 0, 
-        "MenuCanceled", 0, 
-        "MenuDeselected", 0, 
-        "MenuSelected", 0, 
-        "PopupMenuCanceled", 0, 
-        "PopupMenuWillBecomeInvisible", 0, 
-        "PopupMenuWillBecomeVisible", 0, 
-        "PropertyNameChange", 0, 
-        "PropertyDescriptionChange", 0, 
-        "PropertyStateChange", 0, 
-        "PropertyValueChange", 0, 
-        "PropertySelectionChange", 0, 
-        "PropertyTextChange", 0, 
-        "PropertyCaretChange", 0, 
-        "PropertyVisibleDataChange", 0, 
-        "PropertyChildChange", 0, 
-        "PropertyActiveDescendentChange", 0, 
-        "PropertyTableModelChange", 0,
-        "JavaShutdown", 0)
-    static RegisterEvent(eventName, handler:=0) => this.base.RegisterEvent(eventName, handler)
-    RegisterEvent(eventName, handler:=0) {
-        if !this.__EventHandlers.Has(eventName)
-            throw ValueError("Non-existant event name", -1)
-        if this.__EventHandlers[eventName]
-            CallbackFree(this.__EventHandlers[eventName])
-        DllCall(this.DLLVersion "\set" eventName "FP", "Ptr", this.__EventHandlers[eventName] := handler ? CallbackCreate(this.__HandleEvent.Bind(this, handler), "CDecl", 3) : 0, "Cdecl")
-    }
-
-    ; X can be pt64 as well, in which case Y should be omitted
-    static WindowFromPoint(X, Y?) { ; by SKAN and Linear Spoon
-        return DllCall("GetAncestor", "Ptr", DllCall("user32.dll\WindowFromPoint", "Int64", IsSet(Y) ? (Y << 32 | (X & 0xFFFFFFFF)) : X), "UInt", 2, "Ptr")
-    }
-
     __HandleEvent(handler, vmID, event, source) => handler(JAB.JavaAccessibleContext(vmID, source, this), event)
 
     __Delete(*) {
         for k, v in this.__EventHandlers
             if v
-                DllCall(this.DLLVersion "\set" k "FP", "Ptr", 0, "CDecl"), CallbackFree(v)
-        DllCall("FreeLibrary", "ptr", this.DLLVersion)
-    }
-
-    class Mapi extends Map {
-        CaseSense := 0
+                DllCall(this.DllPath "\set" k "FP", "Ptr", 0, "CDecl"), CallbackFree(v)
+        DllCall("FreeLibrary", "ptr", this.DllPath)
     }
 
     class JavaAccessibleObject {
@@ -360,9 +360,6 @@ class JAB {
     }
 
     class JavaAccessibleContext extends JAB.JavaAccessibleObject {
-        __LastElementInfo := 0, __LastElementInfoTickCount := 0
-        __UpdateLastElementInfo() => (this.__LastElementInfoTickCount = A_TickCount ? "" : (this.__LastElementInfoTickCount := A_TickCount, this.__LastElementInfo := this.GetElementInfo()))
-
         Id => this.__vmID ":" this.__ac
 
         Name => (this.__UpdateLastElementInfo(), this.__LastElementInfo.Name)
@@ -373,7 +370,7 @@ class JAB {
         States => (this.__UpdateLastElementInfo(), this.__LastElementInfo.States)
         IndexInParent => (this.__UpdateLastElementInfo(), this.__LastElementInfo.IndexInParent)
         Length => (this.__UpdateLastElementInfo(), this.__LastElementInfo.Length)
-        Depth => (this.DefineProp("Depth", {value:DllCall(this.JAB.DLLVersion "\getObjectDepth", "Int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl Int")}), this.Depth)
+        Depth => (this.DefineProp("Depth", {value:DllCall(this.JAB.DllPath "\getObjectDepth", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl Int")}), this.Depth)
         X => (this.__UpdateLastElementInfo(), this.__LastElementInfo.X)
         Y => (this.__UpdateLastElementInfo(), this.__LastElementInfo.Y)
         W => (this.__UpdateLastElementInfo(), this.__LastElementInfo.W)
@@ -396,7 +393,7 @@ class JAB {
         KeyBindings {
             get {
                 static KeyMap := Map(8, "Backspace", 127, "Delete", 40, "Down", 35, "End", 36, "Home", 155, "Insert", 225, "KeypadDown", 226, "KeypadLeft", 227, "KeypadRight", 224, "KeypadUp", 37, "Left", 34, "PgDown", 33, "PgUp", 39, "Right", 38, "Up")
-                if DllCall(this.JAB.DLLVersion "\getAccessibleKeyBindings", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", keyBindings := Buffer(4+10*JAB.MAX_KEY_BINDINGS, 0), "Cdecl int") {
+                if DllCall(this.JAB.DllPath "\getAccessibleKeyBindings", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", keyBindings := Buffer(4+10*JAB.MAX_KEY_BINDINGS, 0), "Cdecl int") {
                     str := "", offset := 4
                     Loop keyBindingsCount := Min(NumGet(keyBindings.Ptr, 0, "int"), JAB.MAX_KEY_BINDINGS)  {
                         modifiers := NumGet(keyBindings.Ptr, offset+4, "int"), key := NumGet(keyBindings.Ptr, offset, "ushort")
@@ -409,7 +406,7 @@ class JAB {
             }
         }
 
-        WinId => (this.DefineProp("WinId", {value:DllCall(this.JAB.DLLVersion "\getHWNDFromAccessibleContext", "Int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl Ptr") || DllCall(this.JAB.DLLVersion "\getHWNDFromAccessibleContext", "Int", (winEl := this.RootElement).__vmID, this.JAB.acType, winEl.__ac, "Cdecl Ptr")}), this.WinId)
+        WinId => (this.DefineProp("WinId", {value:DllCall(this.JAB.DllPath "\getHWNDFromAccessibleContext", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl Ptr") || DllCall(this.JAB.DllPath "\getHWNDFromAccessibleContext", "Int", (winEl := this.RootElement).__vmID, this.JAB.__acType, winEl.__ac, "Cdecl Ptr")}), this.WinId)
         Hwnd => this.WinId
 
         Exists { ; TODO : add additional criteria besides position?
@@ -460,7 +457,7 @@ class JAB {
 
         Parent {
             get {
-                if (ac:=DllCall(this.JAB.DLLVersion "\getAccessibleParentFromContext", "Int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl " this.JAB.acType))
+                if (ac:=DllCall(this.JAB.DllPath "\getAccessibleParentFromContext", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl " this.JAB.__acType))
                     return (this.DefineProp("Parent", {value:JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)}), this.Parent)
                 throw UnsetError("No parent found", -1)
             }
@@ -468,7 +465,7 @@ class JAB {
 
         RootElement {
             get {
-                if (ac:=DllCall(this.JAB.DLLVersion "\getTopLevelObject", "Int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl " this.JAB.acType))
+                if (ac:=DllCall(this.JAB.DllPath "\getTopLevelObject", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl " this.JAB.__acType))
                     return (this.DefineProp("RootElement", {value:JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)}), this.RootElement)
                 throw Error("Unable to get root element", -1)
             }
@@ -487,10 +484,10 @@ class JAB {
             get {
                 children := [], len := this.VisibleLength, i := 0
                 Loop {
-                    TempChildren := Buffer(257*this.JAB.acSize, 0)
-                    if (DllCall(this.JAB.DLLVersion "\getVisibleChildren", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int", i, "Ptr", TempChildren, "Cdecl Int") && numret:=NumGet(TempChildren.Ptr, 0, "Int")) {
+                    TempChildren := Buffer(257*this.JAB.__acSize, 0)
+                    if (DllCall(this.JAB.DllPath "\getVisibleChildren", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", i, "Ptr", TempChildren, "Cdecl Int") && numret:=NumGet(TempChildren.Ptr, 0, "Int")) {
                         Loop numret
-                            children.Push(JAB.JavaAccessibleContext(this.__vmID, NumGet(TempChildren.Ptr, this.JAB.acSize*A_Index, this.JAB.acType), this.JAB))
+                            children.Push(JAB.JavaAccessibleContext(this.__vmID, NumGet(TempChildren.Ptr, this.JAB.__acSize*A_Index, this.JAB.__acType), this.JAB))
                         i+=numret
                     } else
                         break
@@ -499,26 +496,26 @@ class JAB {
             }
         }
 
-        VisibleLength => DllCall(this.JAB.DLLVersion "\getVisibleChildrenCount", "Int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl Int")
+        VisibleLength => DllCall(this.JAB.DllPath "\getVisibleChildrenCount", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl Int")
 
         ;; Value Interface
         Value {
             get {
-                if DllCall(this.JAB.DLLVersion "\getCurrentAccessibleValueFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", pStr := Buffer(JAB.MAX_STRING_SIZE*2, 0), "short", JAB.MAX_STRING_SIZE, "CDecl Int")
+                if DllCall(this.JAB.DllPath "\getCurrentAccessibleValueFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", pStr := Buffer(JAB.MAX_STRING_SIZE*2, 0), "short", JAB.MAX_STRING_SIZE, "CDecl Int")
                     return StrGet(pStr.ptr, JAB.MAX_STRING_SIZE, "UTF-16")
                 throw Error("Unable to get value", -1)
             }
         }
         Maximum {
             get {
-                if DllCall(this.JAB.DLLVersion "\getMaximumAccessibleValueFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", pStr := Buffer(JAB.MAX_STRING_SIZE*2, 0), "short", JAB.MAX_STRING_SIZE, "CDecl Int")
+                if DllCall(this.JAB.DllPath "\getMaximumAccessibleValueFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", pStr := Buffer(JAB.MAX_STRING_SIZE*2, 0), "short", JAB.MAX_STRING_SIZE, "CDecl Int")
                     return StrGet(pStr, JAB.MAX_STRING_SIZE, "UTF-16")
                 throw Error("Unable to get value", -1)
             }
         }
         Minimum {
             get {
-                if DllCall(this.JAB.DLLVersion "\getMinimumAccessibleValueFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", pStr := Buffer(JAB.MAX_STRING_SIZE*2, 0), "short", JAB.MAX_STRING_SIZE, "CDecl Int")
+                if DllCall(this.JAB.DllPath "\getMinimumAccessibleValueFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", pStr := Buffer(JAB.MAX_STRING_SIZE*2, 0), "short", JAB.MAX_STRING_SIZE, "CDecl Int")
                     return StrGet(pStr, JAB.MAX_STRING_SIZE, "UTF-16")
                 throw Error("Unable to get value", -1)
             }
@@ -534,7 +531,7 @@ class JAB {
         ; retrieves information about a certain text element as an object with the keys:
         ; CharCount, CaretIndex, IndexAtPoint
         GetTextInfo(x:=0, y:=0) {
-            if (DllCall(this.JAB.DLLVersion "\getAccessibleTextInfo", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", Info := Buffer(12, 0), "Int", x, "Int", y, "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getAccessibleTextInfo", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(12, 0), "Int", x, "Int", y, "Cdecl Int"))
                 return {CharCount:NumGet(Info.Ptr, 0, "Int"), CaretIndex:NumGet(Info.Ptr, 4, "Int"), IndexAtPoint:NumGet(Info.Ptr, 8, "Int")}
             return 0
         }
@@ -542,7 +539,7 @@ class JAB {
         ; retrieves the text items as an object with the keys:
         ; letter, word, sentence
         GetTextItems(Index) {
-            If (DllCall(this.JAB.DLLVersion "\getAccessibleTextItems", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", Info := Buffer(2562, 0), "Int", Index, "Cdecl Int"))
+            If (DllCall(this.JAB.DllPath "\getAccessibleTextItems", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(2562, 0), "Int", Index, "Cdecl Int"))
                 return {letter:Chr(NumGet(Info.Ptr, 0, "UChar")), word:StrGet(Info.Ptr+2, JAB.SHORT_STRING_SIZE, "UTF-16"), sentence:StrGet(Info.Ptr+2+JAB.SHORT_STRING_SIZE*2, JAB.MAX_STRING_SIZE, "UTF-16")}
             return 0
         }
@@ -550,7 +547,7 @@ class JAB {
         ; retrieves the currently selected text and its start and end index as an object with the keys:
         ; SelectionStartIndex, SelectionEndIndex, SelectedText
         GetTextSelectionInfo() {
-            if (DllCall(this.JAB.DLLVersion "\getAccessibleTextSelectionInfo", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", Info := Buffer(this.JAB.MAX_STRING_SIZE*2+8, 0), "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getAccessibleTextSelectionInfo", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(this.JAB.MAX_STRING_SIZE*2+8, 0), "Cdecl Int"))
                 return {SelectionStartIndex:NumGet(Info.Ptr, 0, "Int"), SelectionEndIndex:NumGet(Info.Ptr, 4, "Int"), SelectedText:StrGet(Info.Ptr+8, this.JAB.MAX_STRING_SIZE, "UTF-16")}
             return 0
         }
@@ -561,7 +558,7 @@ class JAB {
         ; alignment, bidiLevel, firstLineIndent, leftIndent, rightIndent,
         ; lineSpacing, spaceAbove, spaceBelow, fullAttributesString
         GetTextAttributes() {
-            if (DllCall(this.JAB.DLLVersion "\getAccessibleTextAttributes", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", Info := Buffer(3644, 0), "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getAccessibleTextAttributes", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(3644, 0), "Cdecl Int"))
                 return {
                     bold:NumGet(Info.Ptr, 0, "Int"),
                     italic:NumGet(Info.Ptr, 4, "Int"),
@@ -589,7 +586,7 @@ class JAB {
         ; retrieves the location of position Index as an object with the keys:
         ; X, Y, W, H
         GetTextRect(Index) {
-            if (DllCall(this.JAB.DLLVersion "\getAccessibleTextRect", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", Info := Buffer(16, 0), "Int", Index, "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getAccessibleTextRect", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(16, 0), "Int", Index, "Cdecl Int"))
                 return {X:NumGet(Info.Ptr, 0, "Int"), Y:NumGet(Info.Ptr, 4, "Int"), W:NumGet(Info.Ptr, 8, "Int"), H:NumGet(Info.Ptr, 12, "Int")}
             return 0
         }
@@ -597,7 +594,7 @@ class JAB {
         ; retrieves text between start and end index
         GetTextRange(startc:=0, endc:=0) {
             TInfo := this.GetTextInfo(), startc := Max(0, startc), endc := Min(TInfo.CharCount-1, endc = 0 ? 0xFFFFFFFF : endc), len:=endc-startc
-            if (DllCall(this.JAB.DLLVersion "\getAccessibleTextRange", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int", startc, "Int", endc, "Ptr", Txt := Buffer(len*2, 0), "short", len, "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getAccessibleTextRange", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", startc, "Int", endc, "Ptr", Txt := Buffer(len*2, 0), "short", len, "Cdecl Int"))
                 return StrGet(Txt, len, "UTF-16")
             return ""
         }
@@ -605,15 +602,15 @@ class JAB {
         ; retrieves the start and end index of the line containing Index as an object with the keys:
         ; StartPos, EndPos
         GetTextLineBounds(Index) {
-            if (DllCall(this.JAB.DLLVersion "\getAccessibleTextLineBounds", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int*", &StartPos:=0, "Int*", &EndPos:=0, "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getAccessibleTextLineBounds", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int*", &StartPos:=0, "Int*", &EndPos:=0, "Cdecl Int"))
                 return {StartPos:StartPos, EndPos:EndPos}
             return 0
         }
 
-        SelectTextRange(startIndex, endIndex) => DllCall(this.JAB.DLLVersion "\selectTextRange", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int", startIndex, "Int", endIndex, "Cdecl Int")
+        SelectTextRange(startIndex, endIndex) => DllCall(this.JAB.DllPath "\selectTextRange", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", startIndex, "Int", endIndex, "Cdecl Int")
 
         GetTextAttributesInRange(startIndex, endIndex) {
-            if (DllCall(this.JAB.DLLVersion "\getTextAttributesInRange", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int", startIndex, "Int", endIndex, "Ptr", Info := Buffer(3644, 0), "short*", &len:=0, "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getTextAttributesInRange", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", startIndex, "Int", endIndex, "Ptr", Info := Buffer(3644, 0), "short*", &len:=0, "Cdecl Int"))
                 return {
                     length:len,
                     bold:NumGet(Info.Ptr, 0, "Int"),
@@ -640,27 +637,27 @@ class JAB {
         }
 
         GetCaretLocation(Index:=1) {
-            if (DllCall(this.JAB.DLLVersion "\getCaretLocation", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", Info := Buffer(16, 0), "Int", Index-1, "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getCaretLocation", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info := Buffer(16, 0), "Int", Index-1, "Cdecl Int"))
                 return {X:NumGet(Info.Ptr, 0, "Int"), Y:NumGet(Info.Ptr, 4, "Int"), W:NumGet(Info.Ptr, 8, "Int"), H:NumGet(Info.Ptr, 12, "Int")}
             return 0
         }
 
-        SetCaretPosition(Position) => DllCall(this.JAB.DLLVersion "\setCaretPosition", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int", position, "Cdecl Int")
+        SetCaretPosition(Position) => DllCall(this.JAB.DllPath "\setCaretPosition", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", position, "Cdecl Int")
 
         SetTextContents(Text) {
             len := StrLen(Text), TempStr := Buffer(len*2 + 2, 0)
             StrPut(Text, TempStr.ptr, len, "UTF-16")
-            return DllCall(this.JAB.DLLVersion "\setTextContents", "Int", this.__vmID, this.JAB.acType, this.__ac, "UInt", TempStr.Ptr, "Cdecl Int")
+            return DllCall(this.JAB.DllPath "\setTextContents", "Int", this.__vmID, this.JAB.__acType, this.__ac, "UInt", TempStr.Ptr, "Cdecl Int")
         }
 
         ;; Hypertext Interface : partially implemented
         Hyperlinks {
             get {
-                static SizeofAccessibleHypertextInfo := JAB.SHORT_STRING_SIZE*2 + 4 + this.JAB.acSize
-                if this.IsHypertextInterfaceAvailable && DllCall(this.JAB.DLLVersion "\getAccessibleHypertext", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", Info := Buffer(4+JAB.MAX_HYPERLINKS*SizeofAccessibleHypertextInfo+this.JAB.acSize, 0)) {
+                static SizeofAccessibleHypertextInfo := JAB.SHORT_STRING_SIZE*2 + 4 + this.JAB.__acSize
+                if this.IsHypertextInterfaceAvailable && DllCall(this.JAB.DllPath "\getAccessibleHypertext", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", Info := Buffer(4+JAB.MAX_HYPERLINKS*SizeofAccessibleHypertextInfo+this.JAB.__acSize, 0)) {
                     linkCount := NumGet(Info.ptr, "int"), offset := 4, links := []
                     Loop linkCount {
-                        links.Push(link := JAB.JavaAccessibleHyperlink(this.__vmID, this.__ac, this.JAB, NumGet(Info.Ptr, offset+SizeofAccessibleHypertextInfo-this.JAB.acSize, this.JAB.acType)))
+                        links.Push(link := JAB.JavaAccessibleHyperlink(this.__vmID, this.__ac, this.JAB, NumGet(Info.Ptr, offset+SizeofAccessibleHypertextInfo-this.JAB.__acSize, this.JAB.__acType)))
                         link.Text := StrGet(Info.Ptr+offset, JAB.SHORT_STRING_SIZE, "UTF-16")
                         link.startIndex := NumGet(Info.Ptr, offset+JAB.SHORT_STRING_SIZE*2, "int")
                         link.endIndex := NumGet(Info.Ptr, offset+JAB.SHORT_STRING_SIZE*2+4, "int")
@@ -675,7 +672,7 @@ class JAB {
         ;; Relations Interface : UNTESTED
 
         GetRelations() {
-            if DllCall(this.JAB.DLLVersion "\getAccessibleRelationSet", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", relationSetInfo := Buffer(4+JAB.MAX_RELATIONS*(this.JAB.acSize*JAB.MAX_RELATION_TARGETS+4+JAB.SHORT_STRING_SIZE*2), 0), "Cdecl Int") {
+            if DllCall(this.JAB.DllPath "\getAccessibleRelationSet", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", relationSetInfo := Buffer(4+JAB.MAX_RELATIONS*(this.JAB.__acSize*JAB.MAX_RELATION_TARGETS+4+JAB.SHORT_STRING_SIZE*2), 0), "Cdecl Int") {
                 offset := 4, relations := []
                 Loop relationCount := NumGet(relationSetInfo.Ptr, "int") {
                     key := StrGet(relationSetInfo.Ptr+offset, JAB.SHORT_STRING_SIZE, "UTF-16")
@@ -683,9 +680,9 @@ class JAB {
                     targets := [], targetCount := NumGet(relationSetInfo.Ptr, offset, "int")
                     offset += 4
                     Loop targetCount {
-                        if ac := NumGet(relationSetInfo.Ptr, offset, this.JAB.acType)
+                        if ac := NumGet(relationSetInfo.Ptr, offset, this.JAB.__acType)
                             targets.Push(JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB))
-                        offset += this.JAB.acSize
+                        offset += this.JAB.__acSize
                     }
                     relations.Push({key:key, targets:targets})
                 }
@@ -698,31 +695,31 @@ class JAB {
         ;; Table Interface : NOT IMPLEMENTED
 
         GetTable() {
-            if DllCall(this.JAB.DLLVersion "\getAccessibleTableInfo", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
+            if DllCall(this.JAB.DllPath "\getAccessibleTableInfo", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
                 return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
             throw Error("Unable to get table info", -1)
         }
 
         ;; Selection Interface
 
-        AddSelection(i) => DllCall(this.JAB.DLLVersion "\addAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "int", i-1, "Cdecl")
-        RemoveSelection(i) => DllCall(this.JAB.DLLVersion "\removeAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "int", i-1, "Cdecl")
-        ClearSelections() => DllCall(this.JAB.DLLVersion "\clearAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl")
+        AddSelection(i) => DllCall(this.JAB.DllPath "\addAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", i-1, "Cdecl")
+        RemoveSelection(i) => DllCall(this.JAB.DllPath "\removeAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", i-1, "Cdecl")
+        ClearSelections() => DllCall(this.JAB.DllPath "\clearAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl")
         GetSelection(i) {
-            if (ac := DllCall(this.JAB.DLLVersion "\getAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "int", i-1, "Cdecl " this.JAB.acType))
+            if (ac := DllCall(this.JAB.DllPath "\getAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", i-1, "Cdecl " this.JAB.__acType))
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
             return 0
         }
-        SelectionCount => DllCall(this.JAB.DLLVersion "\getAccessibleSelectionCountFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl int")
-        IsChildSelected(i) => DllCall(this.JAB.DLLVersion "\isAccessibleChildSelectedFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "int", i-1, "Cdecl int")
-        SelectAll() => DllCall(this.JAB.DLLVersion "\selectAllAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl")
+        SelectionCount => DllCall(this.JAB.DllPath "\getAccessibleSelectionCountFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl int")
+        IsChildSelected(i) => DllCall(this.JAB.DllPath "\isAccessibleChildSelectedFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", i-1, "Cdecl int")
+        SelectAll() => DllCall(this.JAB.DllPath "\selectAllAccessibleSelectionFromContext", "int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl")
 
         ;; Action Interface
 
         Actions {
             get {
                 Actions := Buffer(256*256*2+A_PtrSize, 0)
-                if DllCall(this.JAB.DLLVersion "\getAccessibleActions", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", Actions.Ptr, "Cdecl Int") {
+                if DllCall(this.JAB.DllPath "\getAccessibleActions", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Actions.Ptr, "Cdecl Int") {
                     arr := []
                     numActions:=NumGet(Actions.Ptr, 0, "Int")
                     Offset := 4
@@ -747,11 +744,11 @@ class JAB {
                 offset += JAB.SHORT_STRING_SIZE
                 NumPut("Int", A_Index, pActions.Ptr, 0)
             }
-            DllCall(this.JAB.DLLVersion "\doAccessibleActions", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", pActions, "Int*", &failure:=0, "Cdecl Int")
+            DllCall(this.JAB.DllPath "\doAccessibleActions", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", pActions, "Int*", &failure:=0, "Cdecl Int")
             return failure
         }
 
-        SetFocus() => DllCall(this.JAB.DLLVersion "\requestFocus", "Int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl Int")
+        SetFocus() => DllCall(this.JAB.DllPath "\requestFocus", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl Int")
 
         ;; General functions
 
@@ -775,7 +772,7 @@ class JAB {
 
         GetElementInfo() {
             Info := Buffer(6188, 0)
-            if (DllCall(this.JAB.DLLVersion "\getAccessibleContextInfo", "Int", this.__vmID, this.JAB.acType, this.__ac, "Ptr", Info, "Cdecl Int")) {
+            if (DllCall(this.JAB.DllPath "\getAccessibleContextInfo", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Ptr", Info, "Cdecl Int")) {
                 ret := {}
                 Offset:=0
                 ret.Name := StrGet(info.ptr+Offset, JAB.MAX_STRING_SIZE, "UTF-16")
@@ -840,7 +837,7 @@ class JAB {
 
         GetNthChild(index) {
             local ac
-            If (ac:=DllCall(this.JAB.DLLVersion "\getAccessibleChildFromContext", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int", index-1, "Cdecl " this.JAB.acType))
+            If (ac:=DllCall(this.JAB.DllPath "\getAccessibleChildFromContext", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", index-1, "Cdecl " this.JAB.__acType))
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
         }
 
@@ -1215,7 +1212,7 @@ class JAB {
             Loop {
                 try {
                     if Type(condition) = "Object" && condition.HasProp("Role") {
-                        if !(ac := DllCall(this.JAB.DLLVersion "\getParentWithRole", "Int", this.__vmID, this.JAB.acType, this.__ac, "wstr", condition.Role, "Cdecl " this.JAB.acType))
+                        if !(ac := DllCall(this.JAB.DllPath "\getParentWithRole", "Int", this.__vmID, this.JAB.__acType, this.__ac, "wstr", condition.Role, "Cdecl " this.JAB.__acType))
                             return 0
                         oEl := JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
                     } else
@@ -1450,7 +1447,7 @@ class JAB {
 
         GetVersionInfo() {
             Info := Buffer(2048, 0)
-            if (DllCall(this.JAB.DLLVersion "\getVersionInfo", "Int", this.__vmID, "Ptr", Info, "Cdecl Int"))
+            if (DllCall(this.JAB.DllPath "\getVersionInfo", "Int", this.__vmID, "Ptr", Info, "Cdecl Int"))
                 return {VMVersion:StrGet(Info.Ptr, JAB.SHORT_STRING_SIZE, "UTF-16")
                     , bridgeJavaClassVersion:StrGet(Info.Ptr+JAB.SHORT_STRING_SIZE*2, JAB.SHORT_STRING_SIZE, "UTF-16")
                     , bridgeJavaDLLVersion:StrGet(Info.Ptr+JAB.SHORT_STRING_SIZE*4, JAB.SHORT_STRING_SIZE, "UTF-16")
@@ -1458,12 +1455,14 @@ class JAB {
             return 0
         }
 
-        __Delete() => DllCall(this.JAB.DLLVersion "\releaseJavaObject", "Int", this.__vmID, this.JAB.acType, this.__ac, "Cdecl")
+        __LastElementInfo := 0, __LastElementInfoTickCount := 0
+        __UpdateLastElementInfo() => (this.__LastElementInfoTickCount = A_TickCount ? "" : (this.__LastElementInfoTickCount := A_TickCount, this.__LastElementInfo := this.GetElementInfo()))
+        __Delete() => DllCall(this.JAB.DllPath "\releaseJavaObject", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl")
     }
 
     class JavaAccessibleHyperlink extends JAB.JavaAccessibleObject {
         ; Text, startIndex, endIndex
-        Activate() => DllCall(this.JAB.DLLVersion "\activateAccessibleHyperlink", "Int", this.__vmID, this.JAB.acType, this.__ac, this.JAB.acType, this.__obj, "Cdecl")
+        Activate() => DllCall(this.JAB.DllPath "\activateAccessibleHyperlink", "Int", this.__vmID, this.JAB.__acType, this.__ac, this.JAB.__acType, this.__obj, "Cdecl")
     }
     ;; Not needed in this implementation
     class JavaAccessibleHypertext extends JAB.JavaAccessibleObject {
@@ -1472,20 +1471,20 @@ class JAB {
     class JavaAccessibleTable extends JAB.JavaAccessibleObject {
         Owner := 0, Caption := 0, Summary := 0, rowCount := 0, columnCount := 0
         static __GetTable(caller, tableInfo) {
-            local owner := (ac := NumGet(tableInfo, caller.JAB.acSize*2+8, caller.JAB.acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0
-            , table := ((t := NumGet(tableInfo, caller.JAB.acSize*3+8, caller.JAB.acType)) ? JAB.JavaAccessibleTable(caller.__vmID, ac, caller.JAB, t) : 0)
+            local owner := (ac := NumGet(tableInfo, caller.JAB.__acSize*2+8, caller.JAB.__acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0
+            , table := ((t := NumGet(tableInfo, caller.JAB.__acSize*3+8, caller.JAB.__acType)) ? JAB.JavaAccessibleTable(caller.__vmID, ac, caller.JAB, t) : 0)
             if table && owner {
                 table.Owner := owner
-                table.Caption := ((ac := NumGet(tableInfo, caller.JAB.acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0)
-                table.Summary := ((ac := NumGet(tableInfo, caller.JAB.acSize, caller.JAB.acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0)
-                table.rowCount := NumGet(tableInfo, caller.JAB.acSize*2, "int")
-                table.columnCount := NumGet(tableInfo, caller.JAB.acSize*2+4, "int")
+                table.Caption := ((ac := NumGet(tableInfo, caller.JAB.__acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0)
+                table.Summary := ((ac := NumGet(tableInfo, caller.JAB.__acSize, caller.JAB.__acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0)
+                table.rowCount := NumGet(tableInfo, caller.JAB.__acSize*2, "int")
+                table.columnCount := NumGet(tableInfo, caller.JAB.__acSize*2+4, "int")
                 return table
             }
             return 0
         }
-        static __GetCell(caller, tableCellInfo) => (offset := 0, cell := JAB.JavaAccessibleCell(caller.__vmID, NumGet(tableCellInfo.Ptr, caller.JAB.acType), caller.JAB),
-            Cell.index:=NumGet(tableCellInfo.Ptr, offset+=caller.JAB.acSize, "int")+1,
+        static __GetCell(caller, tableCellInfo) => (offset := 0, cell := JAB.JavaAccessibleCell(caller.__vmID, NumGet(tableCellInfo.Ptr, caller.JAB.__acType), caller.JAB),
+            Cell.index:=NumGet(tableCellInfo.Ptr, offset+=caller.JAB.__acSize, "int")+1,
             Cell.row:=NumGet(tableCellInfo.Ptr, offset+=4, "int")+1,
             Cell.column:=NumGet(tableCellInfo.Ptr, offset+=4, "int")+1,
             Cell.rowExtent:=NumGet(tableCellInfo.Ptr, offset+=4, "int"),
@@ -1497,14 +1496,14 @@ class JAB {
                 throw ValueError("Invalid row number", -1)
             if column < 1 || column > this.columnCount
                 throw ValueError("Invalid column number", -1)
-            if DllCall(this.JAB.DLLVersion "\getAccessibleTableCellInfo", "Int", this.__vmID, this.JAB.acType, this.__obj, "int", row-1, "int", column-1, "ptr", tableCellInfo:=Buffer(32,0), "Cdecl Int")
+            if DllCall(this.JAB.DllPath "\getAccessibleTableCellInfo", "Int", this.__vmID, this.JAB.__acType, this.__obj, "int", row-1, "int", column-1, "ptr", tableCellInfo:=Buffer(32,0), "Cdecl Int")
                 return JAB.JavaAccessibleTable.__GetCell(this, tableCellInfo)
             throw Error("Unable to get cell", -1)
         }
 
         RowHeader {
             get {
-                if DllCall(this.JAB.DLLVersion "\getAccessibleTableRowHeader", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
+                if DllCall(this.JAB.DllPath "\getAccessibleTableRowHeader", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
                     return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
                 throw Error("Unable to get table", -1)
             }
@@ -1512,7 +1511,7 @@ class JAB {
 
         ColumnHeader {
             get {
-                if DllCall(this.JAB.DLLVersion "\getAccessibleTableColumnHeader", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
+                if DllCall(this.JAB.DllPath "\getAccessibleTableColumnHeader", "int", this.__vmID, this.JAB.__acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
                     return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
                 throw Error("Unable to get table", -1)
             }
@@ -1521,7 +1520,7 @@ class JAB {
         GetRow(row) {
             if row < 1 || row > this.rowCount
                 throw ValueError("Invalid row number", -1)
-            if ac := DllCall(this.JAB.DLLVersion "\getAccessibleTableRowDescription", "int", this.__vmID, this.JAB.acType, this.__ac, "int", row-1, "Cdecl " this.JAB.acType)
+            if ac := DllCall(this.JAB.DllPath "\getAccessibleTableRowDescription", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", row-1, "Cdecl " this.JAB.__acType)
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
             throw Error("Unable to get row", -1)
         }
@@ -1529,15 +1528,15 @@ class JAB {
         GetColumn(column) {
             if column < 1 || column > this.columnCount
                 throw ValueError("Invalid column number", -1)
-            if ac := DllCall(this.JAB.DLLVersion "\getAccessibleTableColumnDescription", "int", this.__vmID, this.JAB.acType, this.__ac, "int", column-1, "Cdecl " this.JAB.acType)
+            if ac := DllCall(this.JAB.DllPath "\getAccessibleTableColumnDescription", "int", this.__vmID, this.JAB.__acType, this.__ac, "int", column-1, "Cdecl " this.JAB.__acType)
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
             throw Error("Unable to get column", -1)
         }
 
-        RowSelectionCount => DllCall(this.JAB.DLLVersion "\getAccessibleTableRowSelectionCount", "int", this.__vmID, this.JAB.acType, this.__obj, "Cdecl Int")
-        ColumnSelectionCount => DllCall(this.JAB.DLLVersion "\getAccessibleTableColumnSelectionCount", "int", this.__vmID, this.JAB.acType, this.__obj, "Cdecl Int")
+        RowSelectionCount => DllCall(this.JAB.DllPath "\getAccessibleTableRowSelectionCount", "int", this.__vmID, this.JAB.__acType, this.__obj, "Cdecl Int")
+        ColumnSelectionCount => DllCall(this.JAB.DllPath "\getAccessibleTableColumnSelectionCount", "int", this.__vmID, this.JAB.__acType, this.__obj, "Cdecl Int")
         GetSelectedRows() {
-            if DllCall(this.JAB.DLLVersion "\getAccessibleTableRowSelections", "int", this.__vmID, this.JAB.acType, this.__obj, "int", c := this.RowSelectionCount, "ptr", buf := Buffer(4*c) "Cdecl Int") {
+            if DllCall(this.JAB.DllPath "\getAccessibleTableRowSelections", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", c := this.RowSelectionCount, "ptr", buf := Buffer(4*c) "Cdecl Int") {
                 selections := []
                 Loop c
                     selections.Push(NumGet(buf.ptr, (A_Index-1)*4, "int")+1)
@@ -1546,7 +1545,7 @@ class JAB {
             return 0
         }
         GetSelectedColumns() {
-            if DllCall(this.JAB.DLLVersion "\getAccessibleTableColumnSelections", "int", this.__vmID, this.JAB.acType, this.__obj, "int", c := this.ColumnSelectionCount, "ptr", buf := Buffer(4*c) "Cdecl Int") {
+            if DllCall(this.JAB.DllPath "\getAccessibleTableColumnSelections", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", c := this.ColumnSelectionCount, "ptr", buf := Buffer(4*c) "Cdecl Int") {
                 selections := []
                 Loop c
                     selections.Push(NumGet(buf.ptr, (A_Index-1)*4, "int")+1)
@@ -1554,11 +1553,11 @@ class JAB {
             }
             return 0
         }
-        IsRowSelected(row) => DllCall(this.JAB.DLLVersion "\isAccessibleTableRowSelected", "int", this.__vmID, this.JAB.acType, this.__obj, "int", row-1, "Cdecl Int")
-        IsColumnSelected(column) => DllCall(this.JAB.DLLVersion "\isAccessibleTableColumnSelected", "int", this.__vmID, this.JAB.acType, this.__obj, "int", column-1, "Cdecl Int")
-        GetRowNumberByCellIndex(index) => DllCall(this.JAB.DLLVersion "\getAccessibleTableRow", "int", this.__vmID, this.JAB.acType, this.__obj, "int", index-1, "Cdecl Int")
-        GetColumnNumberByCellIndex(index) => DllCall(this.JAB.DLLVersion "\getAccessibleTableColumn", "int", this.__vmID, this.JAB.acType, this.__obj, "int", index-1, "Cdecl Int")
-        GetCellIndex(row, column) => DllCall(this.JAB.DLLVersion "\getAccessibleTableIndex", "int", this.__vmID, this.JAB.acType, this.__obj, "int", row-1, "int", column-1, "Cdecl Int")
+        IsRowSelected(row) => DllCall(this.JAB.DllPath "\isAccessibleTableRowSelected", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", row-1, "Cdecl Int")
+        IsColumnSelected(column) => DllCall(this.JAB.DllPath "\isAccessibleTableColumnSelected", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", column-1, "Cdecl Int")
+        GetRowNumberByCellIndex(index) => DllCall(this.JAB.DllPath "\getAccessibleTableRow", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", index-1, "Cdecl Int")
+        GetColumnNumberByCellIndex(index) => DllCall(this.JAB.DllPath "\getAccessibleTableColumn", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", index-1, "Cdecl Int")
+        GetCellIndex(row, column) => DllCall(this.JAB.DllPath "\getAccessibleTableIndex", "int", this.__vmID, this.JAB.__acType, this.__obj, "int", row-1, "int", column-1, "Cdecl Int")
     }
 
     class JavaAccessibleCell extends JAB.JavaAccessibleContext {
