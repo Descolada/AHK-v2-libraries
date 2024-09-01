@@ -207,6 +207,9 @@ class JAB {
         If (!DllCall(this.DLLVersion "\Windows_run", "Cdecl Int")) {
             throw Error("Initializing JAB failed")
         }
+        _DLLVersion := this.DLLVersion
+        this.DLLVersion := "Java Access Bridge requires 200ms to startup! No JAB methods may be used before that."
+        SetTimer((*) => this.DLLVersion := _DLLVersion, -200)
     }
 
     __LoadLegacy() {
@@ -485,10 +488,9 @@ class JAB {
                 children := [], len := this.VisibleLength, i := 0
                 Loop {
                     TempChildren := Buffer(257*this.JAB.acSize, 0)
-                    if (DllCall(this.JAB.DLLVersion "\getVisibleChildren", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int", i, "Ptr", TempChildren.Ptr, "Cdecl Int")) {
-                        numret:=NumGet(TempChildren.Ptr, 0, "Int")
+                    if (DllCall(this.JAB.DLLVersion "\getVisibleChildren", "Int", this.__vmID, this.JAB.acType, this.__ac, "Int", i, "Ptr", TempChildren, "Cdecl Int") && numret:=NumGet(TempChildren.Ptr, 0, "Int")) {
                         Loop numret
-                            children.Push(JAB.JavaAccessibleContext(this.__vmID,NumGet(TempChildren.Ptr, this.JAB.acSize*(A_Index-1)+4, this.JAB.acType),this.JAB))
+                            children.Push(JAB.JavaAccessibleContext(this.__vmID, NumGet(TempChildren.Ptr, this.JAB.acSize*A_Index, this.JAB.acType), this.JAB))
                         i+=numret
                     } else
                         break
@@ -654,8 +656,8 @@ class JAB {
         ;; Hypertext Interface : partially implemented
         Hyperlinks {
             get {
-                SizeofAccessibleHypertextInfo := JAB.SHORT_STRING_SIZE*2 + 4 + this.JAB.acSize
-                if DllCall(this.JAB.DLLVersion "\getAccessibleHypertext", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", Info := Buffer(4+JAB.MAX_HYPERLINKS*SizeofAccessibleHypertextInfo+this.JAB.acSize, 0)) {
+                static SizeofAccessibleHypertextInfo := JAB.SHORT_STRING_SIZE*2 + 4 + this.JAB.acSize
+                if this.IsHypertextInterfaceAvailable && DllCall(this.JAB.DLLVersion "\getAccessibleHypertext", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", Info := Buffer(4+JAB.MAX_HYPERLINKS*SizeofAccessibleHypertextInfo+this.JAB.acSize, 0)) {
                     linkCount := NumGet(Info.ptr, "int"), offset := 4, links := []
                     Loop linkCount {
                         links.Push(link := JAB.JavaAccessibleHyperlink(this.__vmID, this.__ac, this.JAB, NumGet(Info.Ptr, offset+SizeofAccessibleHypertextInfo-this.JAB.acSize, this.JAB.acType)))
@@ -670,9 +672,36 @@ class JAB {
             }
         }
 
-        ;; Relations Interface : NOT IMPLEMENTED
+        ;; Relations Interface : UNTESTED
+
+        GetRelations() {
+            if DllCall(this.JAB.DLLVersion "\getAccessibleRelationSet", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", relationSetInfo := Buffer(4+JAB.MAX_RELATIONS*(this.JAB.acSize*JAB.MAX_RELATION_TARGETS+4+JAB.SHORT_STRING_SIZE*2), 0), "Cdecl Int") {
+                offset := 4, relations := []
+                Loop relationCount := NumGet(relationSetInfo.Ptr, "int") {
+                    key := StrGet(relationSetInfo.Ptr+offset, JAB.SHORT_STRING_SIZE, "UTF-16")
+                    offset += 2*JAB.SHORT_STRING_SIZE
+                    targets := [], targetCount := NumGet(relationSetInfo.Ptr, offset, "int")
+                    offset += 4
+                    Loop targetCount {
+                        if ac := NumGet(relationSetInfo.Ptr, offset, this.JAB.acType)
+                            targets.Push(JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB))
+                        offset += this.JAB.acSize
+                    }
+                    relations.Push({key:key, targets:targets})
+                }
+                return relations
+            }
+            
+            return 0
+        }
 
         ;; Table Interface : NOT IMPLEMENTED
+
+        GetTable() {
+            if DllCall(this.JAB.DLLVersion "\getAccessibleTableInfo", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
+                return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
+            throw Error("Unable to get table info", -1)
+        }
 
         ;; Selection Interface
 
@@ -1186,7 +1215,7 @@ class JAB {
             Loop {
                 try {
                     if Type(condition) = "Object" && condition.HasProp("Role") {
-                        if !(ac := DllCall(this.JAB.DLLVersion "\getParentWithRole", "Int", this.__vmID, this.JAB.acType, this.__ac, "wstr", condition.Role, "Cdecl " this.JAB.acPType))
+                        if !(ac := DllCall(this.JAB.DLLVersion "\getParentWithRole", "Int", this.__vmID, this.JAB.acType, this.__ac, "wstr", condition.Role, "Cdecl " this.JAB.acType))
                             return 0
                         oEl := JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
                     } else
@@ -1438,6 +1467,102 @@ class JAB {
     }
     ;; Not needed in this implementation
     class JavaAccessibleHypertext extends JAB.JavaAccessibleObject {
+    }
+
+    class JavaAccessibleTable extends JAB.JavaAccessibleObject {
+        Owner := 0, Caption := 0, Summary := 0, rowCount := 0, columnCount := 0
+        static __GetTable(caller, tableInfo) {
+            local owner := (ac := NumGet(tableInfo, caller.JAB.acSize*2+8, caller.JAB.acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0
+            , table := ((t := NumGet(tableInfo, caller.JAB.acSize*3+8, caller.JAB.acType)) ? JAB.JavaAccessibleTable(caller.__vmID, ac, caller.JAB, t) : 0)
+            if table && owner {
+                table.Owner := owner
+                table.Caption := ((ac := NumGet(tableInfo, caller.JAB.acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0)
+                table.Summary := ((ac := NumGet(tableInfo, caller.JAB.acSize, caller.JAB.acType)) ? JAB.JavaAccessibleContext(caller.__vmID, ac, caller.JAB) : 0)
+                table.rowCount := NumGet(tableInfo, caller.JAB.acSize*2, "int")
+                table.columnCount := NumGet(tableInfo, caller.JAB.acSize*2+4, "int")
+                return table
+            }
+            return 0
+        }
+        static __GetCell(caller, tableCellInfo) => (offset := 0, cell := JAB.JavaAccessibleCell(caller.__vmID, NumGet(tableCellInfo.Ptr, caller.JAB.acType), caller.JAB),
+            Cell.index:=NumGet(tableCellInfo.Ptr, offset+=caller.JAB.acSize, "int")+1,
+            Cell.row:=NumGet(tableCellInfo.Ptr, offset+=4, "int")+1,
+            Cell.column:=NumGet(tableCellInfo.Ptr, offset+=4, "int")+1,
+            Cell.rowExtent:=NumGet(tableCellInfo.Ptr, offset+=4, "int"),
+            Cell.columnExtent:=NumGet(tableCellInfo.Ptr, offset+=4, "int"),
+            Cell.isSelected:=NumGet(tableCellInfo.Ptr, offset+=4, "int"), cell)
+        
+        GetCell(row, column) {
+            if row < 1 || row > this.rowCount
+                throw ValueError("Invalid row number", -1)
+            if column < 1 || column > this.columnCount
+                throw ValueError("Invalid column number", -1)
+            if DllCall(this.JAB.DLLVersion "\getAccessibleTableCellInfo", "Int", this.__vmID, this.JAB.acType, this.__obj, "int", row-1, "int", column-1, "ptr", tableCellInfo:=Buffer(32,0), "Cdecl Int")
+                return JAB.JavaAccessibleTable.__GetCell(this, tableCellInfo)
+            throw Error("Unable to get cell", -1)
+        }
+
+        RowHeader {
+            get {
+                if DllCall(this.JAB.DLLVersion "\getAccessibleTableRowHeader", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
+                    return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
+                throw Error("Unable to get table", -1)
+            }
+        }
+
+        ColumnHeader {
+            get {
+                if DllCall(this.JAB.DLLVersion "\getAccessibleTableColumnHeader", "int", this.__vmID, this.JAB.acType, this.__ac, "ptr", tableInfo:=Buffer(40, 0), "Cdecl Int")
+                    return JAB.JavaAccessibleTable.__GetTable(this, tableInfo)
+                throw Error("Unable to get table", -1)
+            }
+        }
+
+        GetRow(row) {
+            if row < 1 || row > this.rowCount
+                throw ValueError("Invalid row number", -1)
+            if ac := DllCall(this.JAB.DLLVersion "\getAccessibleTableRowDescription", "int", this.__vmID, this.JAB.acType, this.__ac, "int", row-1, "Cdecl " this.JAB.acType)
+                return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
+            throw Error("Unable to get row", -1)
+        }
+
+        GetColumn(column) {
+            if column < 1 || column > this.columnCount
+                throw ValueError("Invalid column number", -1)
+            if ac := DllCall(this.JAB.DLLVersion "\getAccessibleTableColumnDescription", "int", this.__vmID, this.JAB.acType, this.__ac, "int", column-1, "Cdecl " this.JAB.acType)
+                return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
+            throw Error("Unable to get column", -1)
+        }
+
+        RowSelectionCount => DllCall(this.JAB.DLLVersion "\getAccessibleTableRowSelectionCount", "int", this.__vmID, this.JAB.acType, this.__obj, "Cdecl Int")
+        ColumnSelectionCount => DllCall(this.JAB.DLLVersion "\getAccessibleTableColumnSelectionCount", "int", this.__vmID, this.JAB.acType, this.__obj, "Cdecl Int")
+        GetSelectedRows() {
+            if DllCall(this.JAB.DLLVersion "\getAccessibleTableRowSelections", "int", this.__vmID, this.JAB.acType, this.__obj, "int", c := this.RowSelectionCount, "ptr", buf := Buffer(4*c) "Cdecl Int") {
+                selections := []
+                Loop c
+                    selections.Push(NumGet(buf.ptr, (A_Index-1)*4, "int")+1)
+                return selections
+            }
+            return 0
+        }
+        GetSelectedColumns() {
+            if DllCall(this.JAB.DLLVersion "\getAccessibleTableColumnSelections", "int", this.__vmID, this.JAB.acType, this.__obj, "int", c := this.ColumnSelectionCount, "ptr", buf := Buffer(4*c) "Cdecl Int") {
+                selections := []
+                Loop c
+                    selections.Push(NumGet(buf.ptr, (A_Index-1)*4, "int")+1)
+                return selections
+            }
+            return 0
+        }
+        IsRowSelected(row) => DllCall(this.JAB.DLLVersion "\isAccessibleTableRowSelected", "int", this.__vmID, this.JAB.acType, this.__obj, "int", row-1, "Cdecl Int")
+        IsColumnSelected(column) => DllCall(this.JAB.DLLVersion "\isAccessibleTableColumnSelected", "int", this.__vmID, this.JAB.acType, this.__obj, "int", column-1, "Cdecl Int")
+        GetRowNumberByCellIndex(index) => DllCall(this.JAB.DLLVersion "\getAccessibleTableRow", "int", this.__vmID, this.JAB.acType, this.__obj, "int", index-1, "Cdecl Int")
+        GetColumnNumberByCellIndex(index) => DllCall(this.JAB.DLLVersion "\getAccessibleTableColumn", "int", this.__vmID, this.JAB.acType, this.__obj, "int", index-1, "Cdecl Int")
+        GetCellIndex(row, column) => DllCall(this.JAB.DLLVersion "\getAccessibleTableIndex", "int", this.__vmID, this.JAB.acType, this.__obj, "int", row-1, "int", column-1, "Cdecl Int")
+    }
+
+    class JavaAccessibleCell extends JAB.JavaAccessibleContext {
+        index := 0, row := 0, column := 0, rowExtent := 0, columnExtent := 0, isSelected := 0
     }
 
     class Viewer {
