@@ -505,7 +505,7 @@ class JAB {
             }
         }
 
-        VisibleChildren {
+        VisibleDescendants {
             get {
                 children := [], len := this.VisibleLength, i := 0
                 Loop {
@@ -521,7 +521,7 @@ class JAB {
             }
         }
 
-        VisibleLength => DllCall(this.JAB.DllPath "\getVisibleChildrenCount", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl Int")
+        VisibleDescendantsCount => DllCall(this.JAB.DllPath "\getVisibleChildrenCount", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Cdecl Int")
 
         ;; Value Interface
         Value {
