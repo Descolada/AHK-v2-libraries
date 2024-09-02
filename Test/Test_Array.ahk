@@ -106,6 +106,7 @@ class ArrayTestSuite {
         DUnit.Equal([].Join(), "")
         DUnit.Equal([1,2,3].Join(), "1,2,3")
         DUnit.Equal([1,2,3].Join(""), "123")
+        DUnit.Equal([1,,3].Join(), "1,,3")
     }
     Test_Flat() {
         DUnit.Equal([].Flat(), [])

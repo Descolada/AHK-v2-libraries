@@ -288,7 +288,7 @@ class Array2 {
 	static Join(delim:=",") {
 		result := ""
 		for v in this
-			result .= v delim
+			result .= (v ?? "") delim
 		return (len := StrLen(delim)) ? SubStr(result, 1, -len) : result
 	}
     /**
