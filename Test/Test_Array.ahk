@@ -9,10 +9,13 @@ class ArrayTestSuite {
     Test_Slice() {
         DUnit.Equal([1].Slice(2), [])
         DUnit.Equal([1,2,3,4,5].Slice(2), [2,3,4,5])
+        DUnit.Equal([1,2,,4,5].Slice(2), [2,,4,5])
+        DUnit.Equal([1,2,,4,5].Slice(1,3), [1,2, unset])
     }
     Test_Swap() {
         DUnit.Equal([1,2].Swap(1,2), [2,1])
         DUnit.Throws(Array2.Swap.Bind([], 1,3))
+        DUnit.Equal([,1].Swap(1,2), [1, unset])
     }
     Test_Map() {
         DUnit.Equal([].Map(a => a+1), [])
@@ -24,6 +27,7 @@ class ArrayTestSuite {
     Test_ForEach() {
         DUnit.Equal([].ForEach(ForEachCallback), [])
         DUnit.Equal([1,2,3].ForEach(ForEachCallback), [2,3,4])
+        DUnit.Equal([1,,3].ForEach((val?, index?, arr?) => IsSet(val) ? (arr[index] := val+1) : ""), [2,,4])
         ForEachCallback(val, index, arr) {
             arr[index] := val+1
         }
@@ -31,34 +35,44 @@ class ArrayTestSuite {
     Test_Filter() {
         DUnit.Equal([].Filter(IsInteger), [])
         DUnit.Equal([1,'two','three',4,5].Filter(IsInteger), [1,4,5])
+        DUnit.Equal([1,,2].Filter((v?) => IsSet(v)), [1,2])
     }
     Test_Reduce() {
         DUnit.Throws(Array2.Reduce.Bind([1,2], 0), "ValueError")
         DUnit.Equal([].Reduce((a,b) => (a+b)), '')
         DUnit.Equal([1,2,3,4,5].Reduce((a,b) => (a+b)), 15)
+        DUnit.Equal([1,,3].Reduce((a:=0,b:=0) => (a+b)), 4)
     }
     Test_IndexOf() {
         DUnit.Equal([].IndexOf(2), 0)
         DUnit.Equal([1,2,3].IndexOf(2), 2)
         DUnit.Equal([1,2,3].IndexOf(2,3), 0)
         DUnit.Equal([1,2,3,4,2,1].IndexOf(2,3), 5)
+        DUnit.Equal([1,,3].IndexOf(unset), 2)
+        DUnit.Equal([2,1,2].IndexOf(2,-1), 3)
+        DUnit.Equal([2,1,2].IndexOf(2,-2), 1)
+        DUnit.Equal([1,1,2].IndexOf(2,-2), 0)
     }
     Test_Find() {
         DUnit.Equal([1,3,5].Find((v) => (Mod(v,2) == 0)), 0)
         DUnit.Equal([1,2,3,4,5].Find((v) => (Mod(v,2) == 0)), 2)
         _ := [1,2,3,4,5].Find((v) => (Mod(v,2) == 0), &val, 3)
         DUnit.Equal(val, 4)
+        DUnit.Equal([1,2,,4,5].Find((v:=0) => (v == 4)), 4)
+        DUnit.Equal([1,2,3,4,,7].Find((v:=1) => (Mod(v,2) == 0),, -1), 4)
     }
     Test_Reverse() {
         DUnit.Equal([].Reverse(), [])
         DUnit.Equal([1].Reverse(), [1])
         DUnit.Equal([1,2].Reverse(), [2,1])
         DUnit.Equal([1,2,"3","b"].Reverse(), ['b','3',2,1])
+        DUnit.Equal([1,2,,4].Reverse(), [4,,2,1])
     }
     Test_Count() {
         DUnit.Equal([].Count(1), 0)
         DUnit.Equal([1,2,2,1,1].Count(1), 3)
         DUnit.Equal([1,2,2,1,1].Count((a) => (Mod(a,2) == 0)), 2)
+        DUnit.Equal([1,,,2].Count(), 2)
     }
     Test_Sort() {
         DUnit.Equal([].Sort(), [])
@@ -111,6 +125,7 @@ class ArrayTestSuite {
     Test_Flat() {
         DUnit.Equal([].Flat(), [])
         DUnit.Equal([1,[2,[3]]].Flat(), [1,2,3])
+        DUnit.Equal([1,,2,[3,,4,[5,6]]].Flat(), [1,,2,3,,4,5,6])
     }
     Test_Extend() {
         DUnit.Equal([].Extend([]), [])

@@ -1,6 +1,6 @@
 ﻿/*
 	Name: Array.ahk
-	Version 0.4 (05.09.23)
+	Version 0.4.1 (02.09.24)
 	Created: 27.08.22
 	Author: Descolada
 
@@ -22,14 +22,14 @@
     Array.Count(value)                      => Counts the number of occurrences of a value.
     Array.Sort(OptionsOrCallback?, Key?)    => Sorts an array, optionally by object values.
     Array.Shuffle()                         => Randomizes the array.
+    Array.Unique()                          => Returns a set of the values in the array
     Array.Join(delim:=",")                  => Joins all the elements to a string using the provided delimiter.
     Array.Flat()                            => Turns a nested array into a one-level array.
     Array.Extend(enums*)                    => Adds the values of other arrays or enumerables to the end of this one.
 */
 
-Array.Prototype.base := Array2
-
 class Array2 {
+    static __New() => (Array2.base := Array.Prototype.base, Array.Prototype.base := Array2)
     /**
      * Returns a section of the array from 'start' to 'end', optionally skipping elements with 'step'.
      * Modifies the original array.
@@ -40,20 +40,23 @@ class Array2 {
      */
     static Slice(start:=1, end:=0, step:=1) {
         len := this.Length, i := start < 1 ? len + start : start, j := Min(end < 1 ? len + end : end, len), r := [], reverse := False
+        if step = 0
+            Throw ValueError("Slice: step cannot be 0", -1)
         if len = 0
             return []
         if i < 1
             i := 1
-        if step = 0
-            Throw Error("Slice: step cannot be 0",-1)
-        else if step < 0 {
+        r.Length := r.Capacity := Abs(j+1-i) // step
+        if step < 0 {
             while i >= j {
-                r.Push(this[i])
+                if this.Has(i)
+                    r[A_Index] := this[i]
                 i += step
             }
         } else {
             while i <= j {
-                r.Push(this[i])
+                if this.Has(i)
+                    r[A_Index] := this[i]
                 i += step
             }
         }
@@ -66,9 +69,9 @@ class Array2 {
      * @returns {Array}
      */
     static Swap(a, b) {
-        temp := this[b]
-        this[b] := this[a]
-        this[a] := temp
+        temp := this.Has(b) ? this[b] : unset
+        this.Has(a) ? (this[b] := this[a]) : this.Delete(b)
+        IsSet(temp) ? (this[a] := temp) : this.Delete(a)
         return this
     }
     /**
@@ -98,7 +101,7 @@ class Array2 {
         if !HasMethod(func)
             throw ValueError("ForEach: func must be a function", -1)
         for i, v in this
-            func(v, i, this)
+            func(v?, i, this)
         return this
     }
     /**
@@ -111,7 +114,7 @@ class Array2 {
             throw ValueError("Filter: func must be a function", -1)
         r := []
         for v in this
-            if func(v)
+            if func(v?)
                 r.Push(v)
         return this := r
     }
@@ -134,23 +137,45 @@ class Array2 {
         else
             out := this[1], i := 1
         while ++i < len {
-            out := func(out, this[i])
+            out := func(out?, this.Has(i) ? this[i] : unset)
         }
         return out
     }
     /**
      * Finds a value in the array and returns its index.
      * @param value The value to search for.
-     * @param start Optional: the index to start the search from. Default is 1.
+     * @param start Optional: the index to start the search from, negative start reverses the search. Default is 1.
      */
-    static IndexOf(value, start:=1) {
+    static IndexOf(value?, start:=1) {
+        local len := this.Length, reverse := false
         if !IsInteger(start)
-            throw ValueError("IndexOf: start value must be an integer")
-        for i, v in this {
-            if i < start
-                continue
-            if v == value
-                return i
+            throw ValueError("IndexOf: start value must be an integer", -1)
+        if start < 0
+            reverse := true, start := len+1+start
+        if start < 1 || start > len
+            return 0
+        if reverse {
+            ++start
+            if IsSet(value) {
+                while --start > 0
+                    if this.Has(start) && (this[start] == value)
+                        return start
+            } else {
+                while --start > 0
+                    if !this.Has(start)
+                        return start
+            }
+        } else {
+            --start
+            if IsSet(value) {
+                while ++start <= len
+                    if this.Has(start) && (this[start] == value)
+                        return start
+            } else {
+                while ++start <= len
+                    if !this.Has(start)
+                        return start
+            }
         }
         return 0
     }
@@ -158,20 +183,30 @@ class Array2 {
      * Finds a value satisfying the provided function and returns its index.
      * @param func The condition function that accepts one argument.
      * @param match Optional: is set to the found value
-     * @param start Optional: the index to start the search from. Default is 1.
+     * @param start Optional: the index to start the search from, negative start reverses the search. Default is 1.
      * @example
      * [1,2,3,4,5].Find((v) => (Mod(v,2) == 0)) ; returns 2
      */
     static Find(func, &match?, start:=1) {
+        local reverse := false
         if !HasMethod(func)
             throw ValueError("Find: func must be a function", -1)
-        for i, v in this {
-            if i < start
-                continue
-            if func(v) {
-                match := v
-                return i
-            }
+        local len := this.Length
+        if start < 0
+            reverse := true, start := len+1+start
+        if start < 1 || start > len
+            return 0
+
+        if reverse {
+            ++start
+            while --start > 0
+                if ((v := (this.Has(start) ? this[start] : unset)), func(v?))
+                    return ((match := v ?? unset), start)
+        } else {
+            --start
+            while ++start <= len
+                if ((v := (this.Has(start) ? this[start] : unset)), func(v?))
+                    return ((match := v ?? unset), start)
         }
         return 0
     }
@@ -181,7 +216,7 @@ class Array2 {
      * [1,2,3].Reverse() ; returns [3,2,1]
      */
     static Reverse() {
-        len := this.Length + 1, max := (len // 2), i := 0
+        local len := this.Length + 1, max := (len // 2), i := 0
         while ++i <= max
             this.Swap(i, len - i)
         return this
@@ -190,9 +225,13 @@ class Array2 {
      * Counts the number of occurrences of a value
      * @param value The value to count. Can also be a function.
      */
-    static Count(value) {
+    static Count(value?) {
         count := 0
-        if HasMethod(value) {
+        if !IsSet(value) {
+            Loop this.Length
+                if this.Has(A_Index)
+                    count++
+        } else if HasMethod(value) {
             for _, v in this
                 if value(v?)
                     count++
@@ -272,7 +311,7 @@ class Array2 {
         return this
     }
     /**
-     * 
+     * Returns a set of values in array
      */
     static Unique() {
         unique := Map()
@@ -300,8 +339,10 @@ class Array2 {
     static Flat() {
         r := []
         for v in this {
-            if Type(v) = "Array"
-                r.Extend(v.Flat())
+            if !IsSet(v)
+                r.Length += 1
+            else if v is Array
+                r.Push(v.Flat()*)
             else
                 r.Push(v)
         }
