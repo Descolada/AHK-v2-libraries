@@ -31,6 +31,8 @@
  * Session.AddTimelinePropertiesChangedEvent(funcObj)
  * Session.AddPlaybackInfoChangedEvent(funcObj)
  * Session.AddMediaPropertiesChangedEvent(funcObj)
+ * Session.UpdateTimelineProperties()
+ * Session.UpdatePlaybackInfo()
  * 
  * Session properties
  * Session.SourceAppUserModelId
@@ -48,12 +50,16 @@
  * Session.Thumbnail
  *      Returns a IRandomAccessStreamWithContentType object of the thumbnail.
  *      This can be converted to other formats with for example the ImagePut library.
+ * 
+ * Timeline properties:
  * Session.StartTime
  * Session.EndTime
  * Session.MinSeekTime
  * Session.MaxSeekTime
  * Session.Position
  * Session.LastUpdatedTime
+ * 
+ * Playback info properties:
  * Session.PlaybackStatus
  * Session.PlaybackType
  * Session.AutoRepeatMode
@@ -80,7 +86,7 @@
  * first argument will be the session that was changed. Otherwise the other arguments are currently
  * unusable.
  * Event registering methods (eg Session.AddPlaybackInfoChangedEvent) return an event handler object, 
- * which when destroyed stops listening for the event.
+ * and calling EventHandler.Remove() stops listening for the event.
  * 
  */
 
@@ -166,11 +172,13 @@ class Media {
 
         ;; internal
         IGlobalSystemMediaTransportControlsSessionTimelineProperties {
-            get {
-                ComCall(8, this, "ptr*", IGlobalSystemMediaTransportControlsSessionTimelineProperties:=this.__Media.IBase()) ; GetPlaybackInfo()
-                this.DefineProp("IGlobalSystemMediaTransportControlsSessionTimelineProperties", {value:IGlobalSystemMediaTransportControlsSessionTimelineProperties})
-                return this.IGlobalSystemMediaTransportControlsSessionTimelineProperties
-            }
+            get => this.UpdateTimelineProperties()
+        }
+
+        UpdateTimelineProperties() {
+            ComCall(8, this, "ptr*", IGlobalSystemMediaTransportControlsSessionTimelineProperties:=this.__Media.IBase()) ; GetTimelineProperties()
+            this.DefineProp("IGlobalSystemMediaTransportControlsSessionTimelineProperties", {value:IGlobalSystemMediaTransportControlsSessionTimelineProperties})
+            return this.IGlobalSystemMediaTransportControlsSessionTimelineProperties
         }
 
         StartTime {
@@ -194,11 +202,13 @@ class Media {
 
         ;; internal
         IGlobalSystemMediaTransportControlsSessionPlaybackInfo {
-            get {
-                ComCall(9, this, "ptr*", IGlobalSystemMediaTransportControlsSessionPlaybackInfo:=this.__Media.IBase()) ; GetPlaybackInfo()
-                this.DefineProp("IGlobalSystemMediaTransportControlsSessionPlaybackInfo", {value:IGlobalSystemMediaTransportControlsSessionPlaybackInfo})
-                return this.IGlobalSystemMediaTransportControlsSessionPlaybackInfo
-            }
+            get => this.UpdatePlaybackInfo()
+        }
+
+        UpdatePlaybackInfo() {
+            ComCall(9, this, "ptr*", IGlobalSystemMediaTransportControlsSessionPlaybackInfo:=this.__Media.IBase()) ; GetPlaybackInfo()
+            this.DefineProp("IGlobalSystemMediaTransportControlsSessionPlaybackInfo", {value:IGlobalSystemMediaTransportControlsSessionPlaybackInfo})
+            return this.IGlobalSystemMediaTransportControlsSessionPlaybackInfo
         }
 
         /**
@@ -350,21 +360,21 @@ class Media {
         AddTimelinePropertiesChangedEvent(funcObj) {
             local handler := this.__Media.CreateEventHandler(funcObj, this.__Media.IID_ITypedEventHandler_TimelinePropertiesChangedEvent), token
             ComCall(25, this, "ptr", handler.ptr, "int64*", &token:=0)
-            handler.token := token, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(26, this, "int64", this.token) : 0).Bind(this)})
+            handler.token := token, handler.Session := this, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(26, this.Session, "int64", this.token) : 0)})
             return handler
         }
 
         AddPlaybackInfoChangedEvent(funcObj) {
             local handler := this.__Media.CreateEventHandler(funcObj, this.__Media.IID_ITypedEventHandler_PlaybackInfoChangedEvent), token
             ComCall(27, this, "ptr", handler.ptr, "int64*", &token:=0)
-            handler.token := token, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(28, this, "int64", this.token) : 0).Bind(this)})
+            handler.token := token, handler.Session := this, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(28, this.Session, "int64", this.token) : 0)})
             return handler
         }
 
         AddMediaPropertiesChangedEvent(funcObj) {
             local handler := this.__Media.CreateEventHandler(funcObj, this.__Media.IID_ITypedEventHandler_MediaPropertiesChangedEvent), token
             ComCall(29, this, "ptr", handler.ptr, "int64*", &token:=0)
-            handler.token := token, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(30, this, "int64", this.token) : 0).Bind(this)})
+            handler.token := token, handler.Session := this, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(30, this.Session, "int64", this.token) : 0)})
             return handler
         }
     }
@@ -392,14 +402,14 @@ class Media {
     static AddCurrentSessionChangedEvent(funcObj) {
         local handler := this.CreateEventHandler(funcObj, this.IID_ITypedEventHandler_CurrentSessionChangedEvent), token
         ComCall(8, this.GlobalSystemMediaTransportControlsSessionManager, "ptr", handler.ptr, "int64*", &token:=0)
-        handler.token := token, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(9, this, "int64", this.token) : 0).Bind(this)})
+        handler.token := token, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(9, this.__Media.GlobalSystemMediaTransportControlsSessionManager, "int64", this.token) : 0)})
         return handler
     }
 
     static AddSessionsChangedEvent(funcObj) {
         local handler := this.CreateEventHandler(funcObj, this.IID_ITypedEventHandler_SessionsChangedEvent), token
         ComCall(10, this.GlobalSystemMediaTransportControlsSessionManager, "ptr", handler.ptr, "int64*", &token:=0)
-        handler.token := token, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(11, this, "int64", this.token) : 0).Bind(this)})
+        handler.token := token, handler.DefineProp("Remove", {Call:((this) => this.HasOwnProp("token") ? ComCall(11, this.__Media.GlobalSystemMediaTransportControlsSessionManager, "int64", this.token) : 0)})
         return handler
     }
 
@@ -492,29 +502,27 @@ class Media {
         if !HasMethod(funcObj, "Call")
             throw TypeError("Invalid function provided", -2)
     
-        buf := Buffer(A_PtrSize * 7), handler := this.EventHandler(), handler.IID := iid, handler.EventHandler := funcObj, handler.Buffer := buf, handler.Ptr := buf.ptr, handlerFunc := handler.Invoke
+        buf := Buffer(A_PtrSize * 6), handler := this.EventHandler(), handler.IID := iid, handler.__Media := this, handler.EventHandler := funcObj, handler.Buffer := buf, handler.Ptr := buf.ptr, handlerFunc := handler.Invoke
         /**
          * Creates a "new COM object":
          * typedef struct Object {
          *  vtbl* vtbl;
-         *  int_64 refCount
-         *  func* func; // this probably isn't needed though
+         *  Object* hander; // the ref count of the handler gets increased keeping track of event handler lifetime
          * }
          * Where vtbl contains QueryInterface, AddRef, Release, and Invoke
          */
-        NumPut("ptr", buf.Ptr + 3*A_PtrSize, "ptr", 1, "ptr", cF:=CallbackCreate(handlerFunc.Bind(handler), "F", 3), "ptr", cQI:=CallbackCreate(QueryInterface, "F", 3), "ptr", cAF:=CallbackCreate(AddRef, "F", 1), "ptr", cR:=CallbackCreate(Release, "F", 1), "ptr", cF, buf)
-        handler.DefineProp("__Delete", { call: (this) => (this.RegisteredEvents.Delete(this.buf.ptr), CallbackFree(cQI), CallbackFree(cAF), CallbackFree(cR), CallbackFree(cF), this.Remove()) })
+        NumPut("ptr", buf.Ptr + 2*A_PtrSize, "ptr", ObjPtr(handler), "ptr", cQI:=CallbackCreate(QueryInterface,, 3), "ptr", cAF:=CallbackCreate(AddRef,, 1), "ptr", cR:=CallbackCreate(Release,, 1), "ptr", cF:=CallbackCreate(handlerFunc.Bind(handler),, 3), buf)
+        ObjRelease(ObjPtr(handler)) ; CallbackCreate binds "handler" to itself, so decrease ref count by 1 to allow it to be released, then inside __Delete add it back before CallbackFree
+        handler.DefineProp("__Delete", { call: (this, *) => (this.__Media.RegisteredEvents.Delete(this.ptr), ObjAddRef(ObjPtr(this)), CallbackFree(cQI), CallbackFree(cAF), CallbackFree(cR), CallbackFree(cF), this.Remove()) })
         this.RegisteredEvents[buf.Ptr] := iid
         return handler
     
         QueryInterface(pSelf, pRIID, pObj){ ; Credit: https://github.com/neptercn/UIAutomation/blob/master/UIA.ahk
             DllCall("ole32\StringFromIID","ptr",pRIID,"wstr*",&str)
-            return (str="{00000000-0000-0000-C000-000000000046}")||(this.RegisteredEvents.Has(pSelf) && str=this.RegisteredEvents[pSelf])?NumPut("ptr",pSelf,pObj)*0:0x80004002 ; E_NOINTERFACE
+            return (str="{00000000-0000-0000-C000-000000000046}")||(this.RegisteredEvents.Has(pSelf) && str=this.RegisteredEvents[pSelf])?(NumPut("ptr",pSelf,pObj), ObjAddRef(pSelf))*0:0x80004002 ; E_NOINTERFACE
         }
-        AddRef(pSelf) {
-        }
-        Release(pSelf) {
-        }
+        AddRef(pSelf) => ObjAddRef(NumGet(pSelf, A_PtrSize, "ptr"))
+        Release(pSelf) => ObjRelease(NumGet(pSelf, A_PtrSize, "ptr"))
     }
 
     class HString {
