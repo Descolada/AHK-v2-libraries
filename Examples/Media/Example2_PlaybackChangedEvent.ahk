@@ -10,3 +10,5 @@ PlaybackInfoChangedEventHandler(session, *) {
         . "`nPlaybackStatus: " Media.PlaybackStatus[session.PlaybackStatus]
         . "`nPlaybackType: " Media.PlaybackType[session.PlaybackType]
 }
+
+Esc::handle.Remove()
