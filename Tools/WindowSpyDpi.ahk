@@ -130,7 +130,7 @@ TryUpdate() {
 
     if oGui["Ctrl_DPINormalized"].Value {
         wDpi := WinGetDpi("ahk_id " curWin)
-        DpiToStandard(wDpi, &msX, &msY), DpiToStandard(wDpi, &mrX, &mrY), DpiToStandard(wDpi, &mcX, &mcY)
+        DpiToStandard(wDpi, &mrX, &mrY), DpiToStandard(wDpi, &mcX, &mcY)
     }
     
     mpText := "Screen:`t" msX ", " msY "`n"
@@ -147,7 +147,7 @@ TryUpdate() {
         WinGetClientPos(&sX, &sY, &sW, &sH, curCtrl)
         ControlGetPos &cX, &cY, &cW, &cH, curCtrl
         if oGui["Ctrl_DPINormalized"].Value
-            DpiToStandard(wDpi, &cX, &cY), DpiToStandard(wDpi, &cW, &cH), DpiToStandard(wDpi, &sW, &sH)
+            DpiToStandard(wDpi, &cX, &cY), DpiToStandard(wDpi, &cW, &cH)
         
         cText := "ClassNN:`t" curCtrlClassNN "`n"
                . "Text:`t" textMangle(ctrlTxt) "`n"
