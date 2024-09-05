@@ -202,11 +202,13 @@ class JAB {
             DllCall("GetCursorPos", "int64P", &pt64:=0), x := 0xFFFFFFFF & pt64, y := pt64 >> 32
         else
             pt64 := y << 32 | (x & 0xFFFFFFFF)
-        hWnd := DllCall("GetAncestor", "Ptr", DllCall("user32.dll\WindowFromPoint", "int64",  pt64, "ptr"), "UInt", 2, "ptr")
-        if !this.IsJavaWindow(hWnd)
-            throw Error("The window at the specified point is not a Java window", -1)
-
-        baseEl := this.ElementFromHandle(hWnd)
+        hWnd := DllCall("GetAncestor", "Ptr", ctrlhWnd := DllCall("user32.dll\WindowFromPoint", "int64",  pt64, "ptr"), "UInt", 2, "ptr")
+        if !this.IsJavaWindow(hWnd) {
+            if !this.IsJavaWindow(ctrlHwnd)
+                throw Error("The window at the specified point is not a Java window", -1)
+            baseEl := this.ElementFromHandle(ctrlhWnd).RootElement
+        } else
+            baseEl := this.ElementFromHandle(hWnd)
         if DllCall(baseEl.JAB.DllPath "\getAccessibleContextAt", "Int", baseEl.__vmID, baseEl.JAB.__acType, baseEl.__ac, "Int", x, "Int", y, baseEl.JAB.__acPType, &ac:=0, "Cdecl Int") && ac {
 			el := JAB.JavaAccessibleContext(baseEl.__vmID, ac, baseEl.JAB), loc := el.Location
             if x >= loc.x && y >= loc.y && x <= (loc.x+loc.w) && y <= (loc.y+loc.h)
@@ -1708,6 +1710,7 @@ class JAB {
             oContext := JAB.ElementFromPoint()
             if !IsObject(oContext)
                 return
+            try mwId := oContext.RootElement.WinId
             oContext.BuildUpdatedCache(this.DefaultLVPropsItems)
             if this.Stored.HasOwnProp("oContext") && oContext.IsEqual(this.Stored.oContext) {
                 if this.FoundTime != 0 && ((A_TickCount - this.FoundTime) > 1000) {
