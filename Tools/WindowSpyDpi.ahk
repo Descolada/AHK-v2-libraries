@@ -130,7 +130,7 @@ TryUpdate() {
 
     if oGui["Ctrl_DPINormalized"].Value {
         wDpi := WinGetDpi("ahk_id " curWin)
-        DpiToStandard(wDpi, &mrX, &mrY), DpiToStandard(wDpi, &mcX, &mcY)
+        DpiToStandard(wDpi, &msX, &msY), DpiToStandard(wDpi, &mrX, &mrY), DpiToStandard(wDpi, &mcX, &mcY)
     }
     
     mpText := "Screen:`t" msX ", " msY "`n"
@@ -146,7 +146,7 @@ TryUpdate() {
         ctrlTxt := ControlGetText(curCtrl)
         WinGetClientPos(&sX, &sY, &sW, &sH, curCtrl)
         ControlGetPos &cX, &cY, &cW, &cH, curCtrl
-        if oGui["Ctrl_DPIAware"].Value
+        if oGui["Ctrl_DPINormalized"].Value
             DpiToStandard(wDpi, &cX, &cY), DpiToStandard(wDpi, &cW, &cH), DpiToStandard(wDpi, &sW, &sH)
         
         cText := "ClassNN:`t" curCtrlClassNN "`n"
@@ -161,7 +161,7 @@ TryUpdate() {
     WinGetPos &wX, &wY, &wW, &wH, "ahk_id " curWin
     WinGetClientPos(&wcX, &wcY, &wcW, &wcH, "ahk_id " curWin)
     
-    if oGui["Ctrl_DPIAware"].Value
+    if oGui["Ctrl_DPINormalized"].Value
         DpiToStandard(wDpi, &wW, &wH), DpiToStandard(wDpi, &wcW, &wcH)
         
     wText := "Screen:`tx: " wX "`ty: " wY "`tw: " wW "`th: " wH "`n"
