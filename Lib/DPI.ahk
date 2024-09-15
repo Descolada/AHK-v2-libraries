@@ -83,6 +83,7 @@ static GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
         return DllCall("GetDpiForWindow", "ptr", hWnd, "uint")
     ; Otherwise report the monitor DPI the window is currently located in
     */
+    local hMonitor, dpiX, dpiY
     return (hMonitor := DllCall("MonitorFromWindow", "ptr", WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "int", 2, "ptr") ; MONITOR_DEFAULTTONEAREST
     , DllCall("Shcore.dll\GetDpiForMonitor", "ptr", hMonitor, "int", 0, "uint*", &dpiX:=0, "uint*", &dpiY:=0), dpiX)
 }
@@ -93,7 +94,7 @@ static GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
  */
 static GetMonitorHandles() {
 	static EnumProc := CallbackCreate(MonitorEnumProc)
-	Monitors := []
+	local Monitors := []
 	return DllCall("User32\EnumDisplayMonitors", "Ptr", 0, "Ptr", 0, "Ptr", EnumProc, "Ptr", ObjPtr(Monitors), "Int") ? Monitors : false
 
     MonitorEnumProc(hMonitor, hDC, pRECT, ObjectAddr) {
@@ -152,6 +153,7 @@ static MonitorFromWindow(WinTitle?, WinText?, flags:=2, ExcludeTitle?, ExcludeTe
  * @returns {Integer} 
  */
 static GetForMonitor(hMonitor, monitorDpiType := 0) {
+    local dpiX, dpiY
 	if !DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "UInt", monitorDpiType, "UInt*", &dpiX:=0, "UInt*", &dpiY:=0, "UInt")
 		return dpiX
 }
@@ -181,6 +183,7 @@ static MouseClickDrag(WhichButton?, X1?, Y1?, X2?, Y2?, Speed?, Relative?) {
 }
 
 static Click(Options*) {
+    local X, Y, regOut
     this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     if Options.Length > 1 && IsInteger(Options[2]) { ; Click(x, y)
         this.FromStandardExceptCoordModeScreen(A_CoordModeMouse, &X:=Options[1], &Y:=Options[2])
@@ -214,6 +217,7 @@ static PixelGetColor(X, Y, Mode := '') {
 }
 
 static PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?) {
+    local out
     this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , (out := PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?)) && this.ToStandardExceptCoordModeScreen(A_CoordModePixel, &OutputVarX, &OutputVarY)
     return out
@@ -240,6 +244,7 @@ static PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, Variation?
  */
 static ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, imgDpi?, &imgW?, &imgH?) {
     static oGdip := InitGdip()
+    local ImgPath, pBitmap, regOut, out
     this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     if !IsSet(dpi)
         dpi := (A_CoordModePixel = "screen") ? A_ScreenDPI : this.GetForWindow("A")
@@ -271,13 +276,12 @@ static ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, im
         if (!DllCall("LoadLibrary", "str", "gdiplus", "UPtr"))
             throw Error("Could not load GDI+ library")
     
-        si := Buffer(A_PtrSize = 8 ? 24 : 16, 0)
-        , NumPut("UInt", 1, si)
+        local si := Buffer(A_PtrSize = 8 ? 24 : 16, 0), _oGdip := {}, pToken
+        NumPut("UInt", 1, si)
         , DllCall("gdiplus\GdiplusStartup", "UPtr*", &pToken:=0, "UPtr", si.Ptr, "UPtr", 0)
         if (!pToken)
             throw Error("Gdiplus failed to start. Please ensure you have gdiplus on your system")
-        _oGdip := {}
-        , _oGdip.DefineProp("ptr", {value:pToken})
+        _oGdip.DefineProp("ptr", {value:pToken})
         , _oGdip.DefineProp("__Delete", {call:(this)=> DllCall("gdiplus\GdiplusShutdown", "Ptr", this.Ptr)}) 
         return _oGdip
     }
@@ -292,6 +296,7 @@ static ControlGetPos(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle
 }
 
 static ControlClick(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount?, Options?, ExcludeTitle?, ExcludeText?) {
+    local x, y, regOut
     this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     if IsSet(ControlOrPos) && ControlOrPos is String {
         if RegExMatch(ControlOrPos, "i)x\s*(\d+)\s+y\s*(\d+)", &regOut:="") {
@@ -305,8 +310,7 @@ static ControlClick(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount
 ; Takes a GUI options string and converts all coordinates from fromDpi (default: DPI.Standard) to targetDpi
 ; Original author: user hi5, https://autohotkey.com/boards/viewtopic.php?f=6&t=37913
 static GuiOptScale(opt, targetDpi, fromDpi := this.Standard) {
-    local number
-    out := ""
+    local number, out := ""
     Loop Parse, opt, A_Space A_Tab {
         if RegExMatch(A_LoopField,"i)(w0|h0|h-1|xp|yp|xs|ys|xm|ym)$|(icon|hwnd)") ; these need to be bypassed
             out .= A_LoopField A_Space
@@ -388,24 +392,28 @@ static CoordsToWindow(&X, &Y, CoordMode, WinTitle?, WinText?, ExcludeTitle?, Exc
 }
 
 static ClientToScreen(&x, &y, hWnd?) {
-    pt := Buffer(8), NumPut("int", x, "int", y, pt)
-    DllCall("ClientToScreen", "ptr", hWnd, "ptr", pt)
-    x := NumGet(pt, 0, "int"), y := NumGet(pt, 4, "int")
+    local pt := Buffer(8)
+    NumPut("int", x, "int", y, pt)
+    , DllCall("ClientToScreen", "ptr", hWnd, "ptr", pt)
+    , x := NumGet(pt, 0, "int"), y := NumGet(pt, 4, "int")
 }
 
 static ScreenToClient(&x, &y, hWnd?) {
-    pt := Buffer(8), NumPut("int", x, "int", y, pt)
+    local pt := Buffer(8)
+    NumPut("int", x, "int", y, pt)
     , DllCall("ScreenToClient", "ptr", hWnd, "ptr", pt)
     , x := NumGet(pt, 0, "int"), y := NumGet(pt, 4, "int")
 }
 
 static ScreenToWindow(&x, &y, hWnd?) {
-	DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", RECT := Buffer(16,0))
+    local RECT := Buffer(16,0)
+	DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", RECT)
 	x := x - NumGet(RECT, 0, "Int"), y := y - NumGet(RECT, 4, "Int")
 }
 
 static WindowToScreen(&x, &y, hWnd?) {
-	DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", RECT := Buffer(16,0))
+    local RECT := Buffer(16,0)
+	DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", RECT)
 	x := x + NumGet(RECT, 0, "Int"), y := y + NumGet(RECT, 4, "Int")
 }
 
@@ -422,20 +430,22 @@ static WindowToClient(&x, &y, hWnd?) {
 ; The following functions apparently do nothing
 
 static PhysicalToLogicalPointForPerMonitorDPI(&x, &y, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    pt64 := y << 32 | (x & 0xFFFFFFFF)
+    local pt64 := y << 32 | (x & 0xFFFFFFFF)
     DllCall("PhysicalToLogicalPointForPerMonitorDPI", "ptr", IsSet(WinTitle) && IsInteger(WinTitle) ? WinTitle : WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "int64P", &pt64)
     x := 0xFFFFFFFF & pt64, y := pt64 >> 32
 }
 
 static LogicalToPhysicalPointForPerMonitorDPI(&x, &y, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-    pt := Buffer(8), NumPut("int", x, "int", y, pt)
+    local pt := Buffer(8)
+    NumPut("int", x, "int", y, pt)
     DllCall("LogicalToPhysicalPointForPerMonitorDPI", "ptr", IsSet(WinTitle) && IsInteger(WinTitle) ? WinTitle : WinExist(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), "ptr", pt)
     x := NumGet(pt, 0, "int"), y := NumGet(pt, 4, "int")
 }
 
 static AdjustWindowRectExForDpi(&x1, &y1, &x2, &y2, dpi) {
-    rect := Buffer(16), NumPut("int", x1, "int", y1, "int", x2, "int", y2, rect)
-    OutputDebug DllCall("AdjustWindowRectExForDpi", "ptr", rect, "int", 0, "int", 0, "int", 0, "int", dpi) "`n"
+    local rect := Buffer(16)
+    NumPut("int", x1, "int", y1, "int", x2, "int", y2, rect)
+    DllCall("AdjustWindowRectExForDpi", "ptr", rect, "int", 0, "int", 0, "int", 0, "int", dpi)
     x1 := NumGet(rect, 0, "int"), y1 := NumGet(rect, 4, "int"), x2 := NumGet(rect, 8, "int"), y2 := NumGet(rect, 12, "int")
 }
 
