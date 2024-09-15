@@ -284,6 +284,7 @@ static ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile, dpi?, im
 }
 
 static ControlGetPos(&OutX?, &OutY?, &OutWidth?, &OutHeight?, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+    local dpi
     this.SetThreadAwarenessContext(this.MaximumPerMonitorDpiAwarenessContext)
     , ControlGetPos(&OutX, &OutY, &OutWidth, &OutHeight, Control?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
     , this.ToStandard(dpi := this.GetForWindow(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?), &OutX, &OutY)
@@ -304,6 +305,7 @@ static ControlClick(ControlOrPos?, WinTitle?, WinText?, WhichButton?, ClickCount
 ; Takes a GUI options string and converts all coordinates from fromDpi (default: DPI.Standard) to targetDpi
 ; Original author: user hi5, https://autohotkey.com/boards/viewtopic.php?f=6&t=37913
 static GuiOptScale(opt, targetDpi, fromDpi := this.Standard) {
+    local number
     out := ""
     Loop Parse, opt, A_Space A_Tab {
         if RegExMatch(A_LoopField,"i)(w0|h0|h-1|xp|yp|xs|ys|xm|ym)$|(icon|hwnd)") ; these need to be bypassed
