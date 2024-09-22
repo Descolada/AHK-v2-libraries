@@ -407,7 +407,6 @@ class WinEvent {
         this.__WinEvent.__RemoveRequiredHooks(this.EventType)
     }
     ; Internal use: adds the callback function to a queue that gets emptied at the end of __HandleWinEvent.
-    ; Also keeps track of how many times the callback has been called.
     static __AddCallbackToQueue(hWnd, HookObj, args*) => HookObj.Callback ? this.__EventQueue.Push(HookObj.Callback.Bind(hWnd, HookObj, args*), HookObj) : 0
     ; Internal use: calls all callbacks in a new pseudo-thread
     static __EmptyEventQueue() {
@@ -440,7 +439,7 @@ class WinEvent {
             }
             goto Cleanup
         }
-        if (!DllCall("IsTopLevelWindow", "ptr", hWnd))
+        if !(hWnd = DllCall("GetAncestor", "Ptr", hWnd, "UInt", 2, "Ptr"))
             goto Cleanup
         if (event = EVENT_OBJECT_NAMECHANGE || event = EVENT_OBJECT_CREATE) {
             if (event = EVENT_OBJECT_NAMECHANGE) {
