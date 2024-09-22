@@ -107,7 +107,9 @@ class JAB {
         PostOrderLastToFirst:3
     }
 
-    static __New() => this.base := JAB()
+    static __New() {
+        try this.base := JAB()
+    }
     __New(AutoEnableJABSwitch:=1, dll?, ForceLegacy:=0) {
         if IsSet(dll) {
             this.DllPath:=StrReplace(dll, ".dll")
