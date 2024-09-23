@@ -101,7 +101,7 @@ class XHotstring {
         }
         TriggerWithOptions := Trigger, Options := Options[1], Trigger := RegExReplace(Trigger, "^:([^:]*):",,, 1)
         if Trigger = ""
-            throw ValueError("Invalid XHotstring trigger", "Can't be empty", -1)
+            throw ValueError("Invalid XHotstring trigger", -1, "Can't be an empty string")
         for HS in this.__RegisteredHotstrings {
             if HS.TriggerWithOptions == TriggerWithOptions && HS.HotIf == this.__CurrentHotIf {
                 if IsSet(Replacement)
@@ -116,7 +116,7 @@ class XHotstring {
             }
         }
         if !IsSet(Replacement)
-            throw ValueError("No such XHotstring registered",, -1)
+            throw ValueError("No such XHotstring registered", -1, Trigger)
 
         opts := this.__DefaultOptions.Clone()
         this.__RegisteredHotstrings.Push(HS := {TriggerWithOptions:TriggerWithOptions, Trigger:Trigger, UnmodifiedTrigger:Trigger, Replacement:Replacement, HotIf:this.__CurrentHotIf, SendFunction:SendFunction ?? this.SendFunction, Options:opts, Active:1})
@@ -135,7 +135,7 @@ class XHotstring {
                 return
             }
         }
-        throw ValueError("No such XHotstring registered",, -1)
+        throw ValueError("No such XHotstring registered", -1, Trigger)
     }
     /**
      * Sets a new HotIf callback and returns the previous one
@@ -158,7 +158,7 @@ class XHotstring {
         set {
             static lpKeyState := Buffer(256,0), pwszBuff := Buffer(4)
             if !(Value is String) || Value = ""
-                throw ValueError("Invalid EndChars",, -1)
+                throw ValueError("Invalid EndChars", -1)
             this.__EndChars := Value
             this.__NoModifierEndChars := ""
             this.__ModifierEndChars := InStr(Value, " ") ? " " : ""
@@ -291,13 +291,13 @@ class XHotstring {
                     if last = "S" {
                         OptObj["S"] := A_LoopField
                     } else
-                        throw ValueError("Invalid Option: " A_LoopField,, -1)
+                        throw ValueError("Invalid Option", -1, A_LoopField)
                 case "*", "?", "B", "C", "O", "T", "R", "M", "Z":
                     OptObj[A_LoopField] := 1
                 case " ", "`t", "S":
                     continue
                 default:
-                    throw ValueError("Invalid Option: " A_LoopField,, -1)
+                    throw ValueError("Invalid Option", -1, A_LoopField)
             }
             last := A_LoopField
         }
