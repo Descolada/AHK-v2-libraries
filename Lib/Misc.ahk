@@ -21,6 +21,8 @@
 		Converts coordinates between screen, window and client.
 	WinGetInfo(WinTitle:="", Verbose := 1, WinText:="", ExcludeTitle:="", ExcludeText:="", Separator := "`n")
 		Gets info about a window (title, process name, location etc).
+	WinWaitNew(WinTitle:="", WinText:="", TimeOut:="", ExcludeTitle:="", ExcludeText:="")
+		Waits for a new instance of a window matching the criteria.
 	GetCaretPos(&X?, &Y?, &W?, &H?)
 		Gets the position of the caret with CaretGetPos, Acc or UIA.
 	IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2)
@@ -122,7 +124,6 @@ Print(value?, func?, newline?) {
 
 /**
  * Converts a value (number, array, object) to a string.
- * Leaving all parameters empty will return the current function and newline in an Array: [func, newline]
  * @param value Optional: the value to convert. 
  * @returns {String}
  */
@@ -291,7 +292,7 @@ MouseTip(x?, y?, color1:="red", color2:="blue", d:=4) {
  * @param Y Screen Y-coordinate of the point
  */
 WindowFromPoint(X, Y) { ; by SKAN and Linear Spoon
-	return DllCall("GetAncestor", "UInt", DllCall("user32.dll\WindowFromPoint", "Int64", Y << 32 | X), "UInt", 2)
+	return DllCall("GetAncestor", "ptr", DllCall("user32.dll\WindowFromPoint", "Int64", Y << 32 | X, "ptr"), "UInt", 2)
 }
 
 /**
@@ -308,7 +309,7 @@ WindowFromPoint(X, Y) { ; by SKAN and Linear Spoon
  * @param excludeText Windows whose text include this value will not be considered.
  */
 ConvertWinPos(X, Y, &outX, &outY, relativeFrom:="", relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?) {
-	relativeFrom := (relativeFrom == "") ? A_CoordModeMouse : relativeFrom
+	relativeFrom := relativeFrom || A_CoordModeMouse
 	if relativeFrom = relativeTo {
 		outX := X, outY := Y
 		return
@@ -333,16 +334,16 @@ ConvertWinPos(X, Y, &outX, &outY, relativeFrom:="", relativeTo:="screen", winTit
 			if relativeTo = "client" || relativeTo = "c" {
 				; screen to client
 				pt := Buffer(8), NumPut("int",outX,pt), NumPut("int",outY,pt,4)
-				DllCall("ScreenToClient", "Int", hWnd, "Ptr", pt)
+				DllCall("ScreenToClient", "ptr", hWnd, "Ptr", pt)
 				outX := NumGet(pt,0,"int"), outY := NumGet(pt,4,"int")
 			}
 		case "client", "c":
 			; client to screen
 			pt := Buffer(8), NumPut("int",X,pt), NumPut("int",Y,pt,4)
-			DllCall("ClientToScreen", "Int", hWnd, "Ptr", pt)
+			DllCall("ClientToScreen", "ptr", hWnd, "Ptr", pt)
 			outX := NumGet(pt,0,"int"), outY := NumGet(pt,4,"int")
 			if relativeTo = "window" || relativeTo = "w" { ; screen to window
-				DllCall("user32\GetWindowRect", "Int", hWnd, "Ptr", RECT := Buffer(16))
+				DllCall("user32\GetWindowRect", "ptr", hWnd, "ptr", RECT := Buffer(16))
 				outX -= NumGet(RECT, 0, "Int"), outY -= NumGet(RECT, 4, "Int")
 			}
 	}
@@ -471,7 +472,38 @@ WinGetInfo(WinTitle:="", Verbose := 1, WinText:="", ExcludeTitle:="", ExcludeTex
 }
 
 /**
- * Gets the position of the caret with UIA, Acc or CaretGetPos.
+ * Waits for a new instance of a window matching the criteria. 
+ * Arguments match the format of WinWait.
+ * @example
+ * w := WinWaitNew("ahk_exe chrome.exe")
+ * Run "chrome.exe"
+ * w()
+ * MsgBox "Chrome found"
+ * @returns {Integer} 
+ */
+class WinWaitNew {
+    Tick := 1
+    __New(WinTitle:="", WinText:="", TimeOut:="", ExcludeTitle:="", ExcludeText:="") {
+        local hWnd, hWnds
+		this.hWnds := hWnds := Map(), this.TimeOut := TimeOut="" ? 0x7FFFFFFFFFFFFFFF : A_TickCount+1000*TimeOut
+        this.WinTitle := WinTitle, this.WinText := WinText, this.ExcludeTitle := ExcludeTitle, this.ExcludeText := ExcludeText
+		for hWnd in WinGetList(WinTitle, WinText, ExcludeTitle, ExcludeText)
+			hWnds[hWnd] := 1
+    }
+    Call() {
+        local hWnd
+        while this.TimeOut > A_TickCount {
+            for hWnd in WinGetList(this.WinTitle, this.WinText, this.ExcludeTitle, this.ExcludeText)
+                if !this.hWnds.Has(hWnd)
+                    return hWnd
+            Sleep this.Tick
+        }
+        throw TimeoutError("Timeout exceeded", -1)
+    }
+}
+
+/**
+ * Gets the position of the caret with UIA, Acc, Java Access Bridge, or CaretGetPos.
  * Credit: plankoe (https://www.reddit.com/r/AutoHotkey/comments/ysuawq/get_the_caret_location_in_any_program/)
  * @param X Value is set to the screen X-coordinate of the caret
  * @param Y Value is set to the screen Y-coordinate of the caret
@@ -480,7 +512,7 @@ WinGetInfo(WinTitle:="", Verbose := 1, WinText:="", ExcludeTitle:="", ExcludeTex
  */
 GetCaretPos(&X?, &Y?, &W?, &H?) {
 	/*
-		This implementation prefers CaretGetPos > Acc > UIA. This is mostly due to speed differences
+		This implementation prefers CaretGetPos > Acc > JAB > UIA. This is mostly due to speed differences
 		between the methods and statistically it seems more likely that the UIA method is required the
 		least (Chromium apps support Acc as well).
 	*/
@@ -509,6 +541,24 @@ GetCaretPos(&X?, &Y?, &W?, &H?) {
         }
     }
 
+	static JAB := InitJAB() ; Source: https://github.com/Elgin1/Java-Access-Bridge-for-AHK
+	if JAB && (hWnd := WinExist("A")) && DllCall(JAB.module "\isJavaWindow", "ptr", hWnd, "CDecl Int") {
+		if JAB.firstRun
+			Sleep(200), JAB.firstRun := 0
+		prevThreadDpiAwarenessContext := DllCall("SetThreadDpiAwarenessContext", "ptr", -2, "ptr")
+		DllCall(JAB.module "\getAccessibleContextWithFocus", "ptr", hWnd, "Int*", &vmID:=0, JAB.acType "*", &ac:=0, "Cdecl Int") "`n"
+		DllCall(JAB.module "\getCaretLocation", "Int", vmID, JAB.acType, ac, "Ptr", Info := Buffer(16,0), "Int", 0, "Cdecl Int")
+		DllCall(JAB.module "\releaseJavaObject", "Int", vmId, JAB.acType, ac, "CDecl")
+		DllCall("SetThreadDpiAwarenessContext", "ptr", prevThreadDpiAwarenessContext, "ptr")
+		X := NumGet(Info, 0, "Int"), Y := NumGet(Info, 4, "Int"), W := NumGet(Info, 8, "Int"), H := NumGet(Info, 12, "Int")
+		hMonitor := DllCall("MonitorFromWindow", "ptr", hWnd, "int", 2, "ptr") ; MONITOR_DEFAULTTONEAREST
+    	DllCall("Shcore.dll\GetDpiForMonitor", "ptr", hMonitor, "int", 0, "uint*", &dpiX:=0, "uint*", &dpiY:=0)
+		if dpiX
+			X := DllCall("MulDiv", "int", X, "int", dpiX, "int", 96, "int"), Y := DllCall("MulDiv", "int", Y, "int", dpiX, "int", 96, "int")
+		if X || Y || W || H
+			return
+	}
+
     ; UIA caret
     static IUIA := ComObject("{e22ad333-b25f-460c-83d0-0581107395c9}", "{34723aff-0c9d-49d0-9896-7ab52df8cd8a}")
     try {
@@ -535,6 +585,7 @@ GetCaretPos(&X?, &Y?, &W?, &H?) {
         if patternObject {
             ComCall(5, patternObject, "ptr*", &selectionRanges:=0), ObjRelease(patternObject) ; GetSelections
 			ComCall(4, selectionRanges, "int", 0, "ptr*", &selectionRange:=0) ; GetElement
+			ComCall(6, selectionRange, "int", 0) ; ExpandToEnclosingUnit = Character
             ComCall(10, selectionRange, "ptr*", &boundingRects:=0), ObjRelease(selectionRange), ObjRelease(selectionRanges) ; GetBoundingRectangles
             if (Rect := ComValue(0x2005, boundingRects)).MaxIndex() = 3 { ; VT_ARRAY | VT_R8
                 X:=Round(Rect[0]), Y:=Round(Rect[1]), W:=Round(Rect[2]), H:=Round(Rect[3])
@@ -542,6 +593,19 @@ GetCaretPos(&X?, &Y?, &W?, &H?) {
             }
         }
     }
+
+	InitJAB() {
+		ret := {}, ret.firstRun := 1, ret.module := A_PtrSize = 8 ? "WindowsAccessBridge-64.dll" : "WindowsAccessBridge-32.dll", ret.acType := "Int64"
+		ret.DefineProp("__Delete", {call: (this) => DllCall("FreeLibrary", "ptr", this)})
+		if !(ret.ptr := DllCall("LoadLibrary", "Str", ret.module, "ptr")) && A_PtrSize = 4 {
+			 ; try legacy, available only for 32-bit
+			 ret.acType := "Int", ret.module := "WindowsAccessBridge.dll", ret.ptr := DllCall("LoadLibrary", "Str", ret.module, "ptr")
+		}
+		if !ret.ptr
+			return ; Failed to load library. Make sure you are running the script in the correct bitness and/or Java for the architecture is installed.
+		DllCall(ret.module "\Windows_run", "Cdecl Int")
+		return ret
+	}
 }
 
 /**
