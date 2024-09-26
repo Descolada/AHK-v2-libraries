@@ -1,6 +1,6 @@
 ﻿/*
 	Name: Misc.ahk
-	Version 0.3 (03.08.23)
+	Version 0.4 (26.09.24)
 	Created: 26.08.22
 	Author: Descolada (https://www.autohotkey.com/boards/viewtopic.php?f=83&t=107759)
     Credit: Coco
