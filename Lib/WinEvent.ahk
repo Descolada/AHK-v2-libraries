@@ -439,7 +439,7 @@ class WinEvent {
             }
             goto Cleanup
         }
-        if !(hWnd = DllCall("GetAncestor", "Ptr", hWnd, "UInt", 2, "Ptr"))
+        if !(hWnd = DllCall("GetAncestor", "Ptr", hWnd, "UInt", 2, "Ptr")) || (event = EVENT_SYSTEM_FOREGROUND && hWnd != DllCall("GetForegroundWindow", "ptr"))
             goto Cleanup
         if (event = EVENT_OBJECT_NAMECHANGE || event = EVENT_OBJECT_CREATE) {
             if (event = EVENT_OBJECT_NAMECHANGE) {
