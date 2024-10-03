@@ -4,7 +4,7 @@ if (!A_IsCompiled and A_LineFile=A_ScriptFullPath)
     JAB.Viewer()
 
 class JAB {
-    DllPath:=""
+    DllPath:="", MaxRecurseDepth := -1
     JavaVersion => (this.DefineProp("JavaVersion", {value:RegRead("HKLM\SOFTWARE" (A_PtrSize = 8 ? "\Wow6432Node" : "") "\JavaSoft\Java Runtime Environment", "CurrentVersion", "")}), this.JavaVersion)
     JavaHome => (this.DefineProp("JavaHome", {value:RegRead("HKLM\SOFTWARE" (A_PtrSize = 8 ? "\Wow6432Node" : "") "\JavaSoft\Java Runtime Environment\" this.JavaVersion, "JavaHome", "")}), this.JavaHome)
 
@@ -787,9 +787,11 @@ class JAB {
                     result.Push(this[A_Index])
             return result
             
-            RecurseTree(parent) {
+            RecurseTree(parent, depth := 0) {
+                if JAB.MaxRecurseDepth >= 0 && ++depth > JAB.MaxRecurseDepth
+                    return
                 for child in parent.Children
-                    result.Push(child), RecurseTree(child)
+                    result.Push(child), RecurseTree(child, ++depth)
             }
         }
 
@@ -864,7 +866,7 @@ class JAB {
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
         }
 
-        Dump(scope:=1, delimiter:=" ", depth:=-1) {
+        Dump(scope:=1, delimiter:=" ", depth:=JAB.MaxRecurseDepth) {
             out := "", scope := IsInteger(scope) ? scope : JAB.TreeScope.%scope%
             if scope&1 {
                 Name := "N/A", Role := "N/A", Description := "N/A", Value := "N/A", States := "N/A", Location := {x:"N/A",y:"N/A",w:"N/A",h:"N/A"}, IsValueInterfaceAvailable := "N/A", AvailableInterfaces := ""
@@ -874,33 +876,31 @@ class JAB {
                 out := "Name: " Name delimiter "Role: " Role delimiter "[Location: {x:" Location.x ",y:" Location.y ",w:" Location.w ",h:" Location.h "}]" (Description ? delimiter "[Description: " Description "]" : "") (Value != "N/A" ? delimiter "[Value: " Value  "]" : "") (States ? delimiter "[States: " States "]" : "") (AvailableInterfaces ? delimiter "[AvailableInterfaces: " AvailableInterfaces "]" : "") "`n"
             }
             if scope&4
-                return Trim(RecurseTree(this, out,, depth), "`n")
+                return Trim(RecurseTree(this, out), "`n")
             if scope&2 {
                 for n, oChild in this.Children
                     out .= n ":" delimiter oChild.Dump() "`n"
             }
             return Trim(out, "`n")
 
-            RecurseTree(oEl, tree, path:="", depth:=-1) {
-                if depth > 0 {
-                    StrReplace(path, "," , , , &count)
-                    if count >= (depth-1)
-                        return tree
-                }
+            RecurseTree(oEl, tree, path:="", currentDepth:=0) {
+                if depth > 0 && currentDepth > depth
+                    return tree
                 try {
                     if !oEl.Length
                         return tree
                 } catch
                     return tree
-                
+
+                ++currentDepth
                 For i, oChild in oEl.Children {
                     tree .= path (path?",":"") i ":" delimiter oChild.Dump() "`n"
-                    tree := RecurseTree(oChild, tree, path (path?",":"") i, depth)
+                    tree := RecurseTree(oChild, tree, path (path?",":"") i, currentDepth)
                 }
                 return tree
             }
         }
-        DumpAll(delimiter:=" ", maxDepth:=-1) => this.Dump(5, delimiter, maxDepth)
+        DumpAll(delimiter:=" ", maxDepth:=JAB.MaxRecurseDepth) => this.Dump(5, delimiter, maxDepth)
 
         /**
          * Returns an element from a path string (comma-separated integers and/or Role values)
@@ -964,7 +964,7 @@ class JAB {
          * @param condition The condition to filter with, or a callback function.  
          * The condition object additionally supports named parameters.  
          * Default MatchMode is "Exact", and CaseSense "On".  
-         * See a more detailed explanation under FindElement condition argument.
+         * See a more detailed explanation under ValidateCondition.
          * @param scope Optional TreeScope value: Element, Children, Family (Element+Children), Descendants, Subtree (=Element+Descendants). Default is Descendants.
          * @param index Looks for the n-th element matching the condition
          * @param order Optional: custom tree navigation order, one of UIA.TreeTraversalOptions values (LastToFirstOrder, PostOrder, LastToFirstPostOrder). Default is FirstToLast and PreOrder.
@@ -992,67 +992,82 @@ class JAB {
                         Loop len-1 {
                             child := children[i := len-A_index]
                             if scope&4 && found := PostOrderLastToFirstRecursiveFind(child, i "") ; Handles this child and its descendants
-                                return found
-                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child) && --index = 0
+                                return IsObject(found) ? found : 0
+                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child, i, 1) > 0 && --index = 0
                                 return (child.Path := i "", child)
                         }
                     } else { ; FirstToLast
                         for i, child in this.Children {
                             if scope&4 && found := PostOrderFirstToLastRecursiveFind(child, i "") ; Handles this child and its descendants
-                                return found
-                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child) && --index = 0
+                                return IsObject(found) ? found : 0
+                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child, i, 1) > 0 && --index = 0
                                 return (child.Path := i "", child)
                         }
                     }
                 }
-                if scope&1 && (startingElement ? (startingElement = this.Id ? !(startingElement := "") : 0) : 1) && callback(this) && --index = 0
+                if scope&1 && (startingElement ? (startingElement = this.Id ? !(startingElement := "") : 0) : 1) && callback(this, 1, 0) > 0 && --index = 0
                     return (this.Path := "", this)
                 throw TargetError("An element matching the condition was not found", -1)
             }
             ; PreOrder
-            if scope&1 && callback(this) && --index = 0
+            if scope&1 && callback(this, 1, 0) > 0 && --index = 0
                 return (this.Path := "", this)
             if scope > 1 {
                 if found := order&2 ? PreOrderLastToFirstRecursiveFind(this) : PreOrderFirstToLastRecursiveFind(this)
                     return found
             }
             throw TargetError("An element matching the condition was not found", -1)
-            PreOrderFirstToLastRecursiveFind(el, path:="") {
-                local child, found
+            PreOrderFirstToLastRecursiveFind(el, path:="", depth:=-1) {
+                local child, found, c
+                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                    return
                 for i, child in el.Children {
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child) && --index = 0
+                    c := 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child)) > 0 && --index = 0
                         return (child.Path := Trim(path "," i, ","), child)
-                    else if scope&4 && (found := PreOrderFirstToLastRecursiveFind(child, path "," i))
+                    else if !c && scope&4 && (found := PreOrderFirstToLastRecursiveFind(child, path "," i, depth))
                         return found
                 }
             }
-            PreOrderLastToFirstRecursiveFind(el, path:="") {
-                local children := el.Children, len := children.Length + 1, found, child
+            PreOrderLastToFirstRecursiveFind(el, path:="", depth:=-1) {
+                local children := el.Children, len := children.Length + 1, found, child, c
+                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                    return
                 Loop len-1 {
-                    child := children[i := len-A_index]
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child) && --index = 0
+                    child := children[i := len-A_index], c := 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child)) && --index = 0
                         return (child.Path := Trim(path "," i, ","), child)
-                    else if scope&4 && found := PreOrderLastToFirstRecursiveFind(child, path "," i)
+                    else if !c && scope&4 && found := PreOrderLastToFirstRecursiveFind(child, path "," i, depth)
                         return found
                 }
             }
-            PostOrderFirstToLastRecursiveFind(el, path:="") {
-                local child, found
+            PostOrderFirstToLastRecursiveFind(el, path:="", depth:=1) {
+                local child, found, c := 0
+                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                    return c
                 for i, child in el.Children {
-                    if (found := PostOrderFirstToLastRecursiveFind(child, path "," i))
+                    if IsObject(found := PostOrderFirstToLastRecursiveFind(child, path "," i, depth))
                         return found
+                    else if found = -1
+                        break
                 }
-                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && callback(el) && --index = 0
+                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) > 0 && --index = 0
                     return (el.Path := Trim(path "," i, ","), el)
+                return c
             }
-            PostOrderLastToFirstRecursiveFind(el, path:="") {
-                local children := el.Children, len := children.Length + 1, found
+            PostOrderLastToFirstRecursiveFind(el, path:="", depth:=1) {
+                local children := el.Children, len := children.Length + 1, found, c := 0
+                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                    return
                 Loop len-1 {
-                    if found := PostOrderLastToFirstRecursiveFind(children[i := len-A_index], path "," i)
+                    if IsObject(found := PostOrderLastToFirstRecursiveFind(children[i := len-A_index], path "," i, depth))
                         return found
+                    else if found = -1
+                        break
                 }
-                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && callback(el) && --index = 0
+                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) && --index = 0
                     return (el.Path := Trim(path "," i, ","), el)
+                return c
             }
         }
 
@@ -1061,7 +1076,7 @@ class JAB {
          * @param condition The condition to filter with, or a callback function.  
          * The condition object additionally supports named parameters.  
          * Default MatchMode is "Exact", and CaseSense "On".  
-         * See a more detailed explanation under FindElement condition argument.
+         * See a more detailed explanation under ValidateCondition.
          * @param scope Optional TreeScope value: Element, Children, Family (Element+Children), Descendants, Subtree (=Element+Descendants). Default is Descendants.
          * @param order Optional: custom tree navigation order, one of UIA.TreeTraversalOptions values (LastToFirstOrder, PostOrder, LastToFirstPostOrder). Default is FirstToLast and PreOrder.
          * @param startingElement Optional: element with which to begin the search
@@ -1083,19 +1098,19 @@ class JAB {
                             child := children[i := len-A_index]
                             if scope&4
                                 PostOrderLastToFirstRecursiveFind(child, i "") ; Handles this child and its descendants
-                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child)
+                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child, i, 1)
                                 child.Path := i "", foundElements.Push(child)
                         }
                     } else { ; FirstToLast
                         for i, child in this.Children {
                             if scope&4
                                 PostOrderFirstToLastRecursiveFind(child, i "") ; Handles this child and its descendants
-                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child)
+                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child, i, 1)
                                 child.Path := i "", foundElements.Push(child)
                         }
                     }
                 }
-                if scope&1 && (startingElement ? (startingElement = this.Id ? !(startingElement := "") : 0) : 1) && callback(this)
+                if scope&1 && (startingElement ? (startingElement = this.Id ? !(startingElement := "") : 0) : 1) && callback(this, 1, 0)
                     this.Path := "", foundElements.Push(this)
                 return foundElements
             }
@@ -1105,39 +1120,54 @@ class JAB {
             if scope > 1
                 return (order&2 ? PreOrderLastToFirstRecursiveFind(this) : PreOrderFirstToLastRecursiveFind(this), foundElements)
             return foundElements
-            PreOrderFirstToLastRecursiveFind(el, path:="") {
-                local child
+            PreOrderFirstToLastRecursiveFind(el, path:="", depth:=-1) {
+                local child, c
+                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                    return
                 for i, child in el.Children {
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child)
+                    c := 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child)) > 0
                         child.Path := Trim(path "," i, ","), foundElements.Push(child)
-                    if scope&4
+                    if !c && scope&4
                         PreOrderFirstToLastRecursiveFind(child, path "," i)
                 }
             }
-            PreOrderLastToFirstRecursiveFind(el, path:="") {
-                local children := el.Children, len := children.Length + 1, child
+            PreOrderLastToFirstRecursiveFind(el, path:="", depth:=-1) {
+                local children := el.Children, len := children.Length + 1, child, c
+                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                    return
                 Loop len-1 {
                     child := children[i := len-A_index]
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child)
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child)) > 0
                         child.Path := Trim(path "," i, ","), foundElements.Push(child)
-                    if scope&4
+                    if !c && scope&4
                         PreOrderLastToFirstRecursiveFind(child, path "," i)
                 }
             }
-            PostOrderFirstToLastRecursiveFind(el, path:="") { ; called only if scope>=4
-                local child
-                for i, child in el.Children
-                    PostOrderFirstToLastRecursiveFind(child, path "," i)
-                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && callback(el)
+            PostOrderFirstToLastRecursiveFind(el, path:="", depth:=1) { ; called only if scope>=4
+                local child, c := 0
+                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                    return c
+                for i, child in el.Children {
+                    if (c := PostOrderFirstToLastRecursiveFind(child, path "," i)) = -1
+                        break
+                }
+                if !c && (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) > 0
                     el.Path := Trim(path, ","), foundElements.Push(el)
+                return c
             }
-            PostOrderLastToFirstRecursiveFind(el, path:="") { ; called only if scope>=4
-                local children, len
+            PostOrderLastToFirstRecursiveFind(el, path:="", depth:=1) { ; called only if scope>=4
+                local children, len, c := 0
+                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                    return c
                 children := el.Children, len := children.Length + 1
-                Loop len-1
-                    PostOrderLastToFirstRecursiveFind(children[i := len-A_index], path "," i)
-                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && callback(el)
+                Loop len-1 {
+                    if (c := PostOrderLastToFirstRecursiveFind(children[i := len-A_index], path "," i)) = -1
+                        break
+                }
+                if !c && (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) > 0
                     el.Path := Trim(path, ","), foundElements.Push(el)
+                return c
             }
         }
 
@@ -1250,6 +1280,16 @@ class JAB {
 
         /*
             Checks whether the element matches a provided condition.
+            
+            1. If the condition isn't an object then it's treated as True/False.
+            
+            2. If the condition is a function, then it must accept 3 arguments: the evaluated element, the index
+            in the evaluated layer, and the depth of recursion (search root element is depth 0).
+                Callback(element, index, depth)
+            If the callback returns 0 then search continues. A positive return accepts the element. 
+            A negative return value causes the current branch to be skipped.  
+
+            3. Otherwise the condition can be an and/or condition for properties of the element, and also named parameters:
             Everything inside {} is an "and" condition
             Everything inside [] is an "or" condition
             Object key "not" creates a not condition
@@ -1263,7 +1303,7 @@ class JAB {
             [{Name:"Something", Role:42}, {Name:"Something2", RoleText:"something else"}] => Name=="Something" and Role==42 OR Name=="Something2" and RoleText=="something else"
             {Name:"Something", not:[RoleText:"something", RoleText:"something else"]} => Name must match "something" and RoleText cannot match "something" nor "something else"
         */
-        ValidateCondition(oCond) {
+        ValidateCondition(oCond, i:=0, *) {
             if !IsObject(oCond)
                 return !!oCond ; if oCond is not an object, then it is treated as True or False condition
             if HasMethod(oCond) {
@@ -1273,6 +1313,12 @@ class JAB {
                     if this.ValidateCondition(c)
                         return 1
                 return 0
+            }
+            if i && oCond.HasOwnProp("IsVisible") && oCond.IsVisible {
+                try {
+                    if !this.IsVisible
+                        return -1
+                }
             }
             matchmode := 3, casesensitive := 1, notCond := False
             for p in ["matchmode", "mm"]
@@ -1822,13 +1868,15 @@ class JAB {
                     this.TVContext.Modify(k, "Vis Select"), this.SBMain.SetText("  Path: " v.Path)
         }
         ; Stores the JAB tree with corresponding path values for each element
-        RecurseTreeView(oContext, parent:=0, path:="") {
+        RecurseTreeView(oContext, parent:=0, path:="", depth := 0) {
+            if JAB.MaxRecurseDepth >= 0 && ++depth > JAB.MaxRecurseDepth
+                return
             oContext.BuildUpdatedCache(this.DefaultLVPropsItems)
             this.Stored.TreeView[TWEl := this.TVContext.Add(this.GetShortDescription(oContext), parent, "Expand")] := oContext.DefineProp("Path", {value:path})
             i := 0
             for v in oContext {
                 if !this.OnlyVisibleElements || v.IsVisible
-                    ++i, this.RecurseTreeView(v, TWEl, path (path?",":"") i)
+                    ++i, this.RecurseTreeView(v, TWEl, path (path?",":"") i, depth)
             }
         }
         ; Creates a short description string for the JAB tree elements
