@@ -864,6 +864,7 @@ class JAB {
             local ac
             If (ac:=DllCall(this.JAB.DllPath "\getAccessibleChildFromContext", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", index-1, "Cdecl " this.JAB.__acType))
                 return JAB.JavaAccessibleContext(this.__vmID, ac, this.JAB)
+            throw TargetError("Unable to get child", -1, "Index " index)
         }
 
         Dump(scope:=1, delimiter:=" ", depth:=JAB.MaxRecurseDepth) {
@@ -1223,7 +1224,7 @@ class JAB {
          * See a more detailed explanation under FindElement condition argument.
          * @param timeout Waiting time for element to disappear. Default: indefinite wait
          * @param scope Optional TreeScope value: Element, Children, Family (Element+Children), Descendants, Subtree (=Element+Descendants). Default is Descendants.
-         * @param order Optional: custom tree navigation order, one of UIA.TreeTraversalOptions values (LastToFirstOrder, PostOrder, LastToFirstPostOrder) [requires Windows 10 version 1703+]
+         * @param order Optional: custom tree navigation order, one of JAB.TreeTraversalOptions values (LastToFirstOrder, PostOrder, LastToFirstPostOrder) [requires Windows 10 version 1703+]
          * @param startingElement Optional: element with which to begin the search [requires Windows 10 version 1703+]
          * @param cacheRequest Optional: cache request object
          * @returns 1 if element disappeared, 0 otherwise
