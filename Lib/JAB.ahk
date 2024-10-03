@@ -471,14 +471,18 @@ class JAB {
             EnumElements(&element) {
                 if ++i > maxLen
                     return false
-                element := children[i]
+                try element := children[i]
+                catch
+                    return false
                 return true
             }
             EnumIndexAndElements(&index, &element) {
                 if ++i > maxLen
                     return false
                 index := i
-                element := children[i]
+                try element := children[i]
+                catch
+                    return false
                 return true
             }
             return (varCount = 1) ? EnumElements : EnumIndexAndElements
@@ -1053,7 +1057,7 @@ class JAB {
                         break
                 }
                 if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) > 0 && --index = 0
-                    return (el.Path := Trim(path "," i, ","), el)
+                    return (el.Path := Trim(path, ","), el)
                 return c
             }
             PostOrderLastToFirstRecursiveFind(el, path:="", depth:=1) {
@@ -1067,7 +1071,7 @@ class JAB {
                         break
                 }
                 if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) && --index = 0
-                    return (el.Path := Trim(path "," i, ","), el)
+                    return (el.Path := Trim(path, ","), el)
                 return c
             }
         }
