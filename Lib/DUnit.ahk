@@ -107,13 +107,16 @@ class DUnit {
      */
     __New(testClasses*) {
         this.Print("Beginning unit testing:`n`n")
-        totalFails := 0, totalSuccesses := 0, startTime := A_TickCount
+        totalFails := 0, totalSuccesses := 0, startTime := A_TickCount, GetCoverage := DUnit.Coverage
         ; First try to capture the auto-execute sections in all the classes
         for testClass in testClasses {
-            if testClass is String
+            if testClass is String {
+                GetCoverage := InStr(testClass, "C")
                 continue
+            }
             testClass()
-            DUnit.GetCoverage(testClass)
+            if GetCoverage
+                DUnit.GetCoverage(testClass)
         }
         ; Start the testing for real
         for testClass in testClasses {
@@ -187,7 +190,7 @@ class DUnit {
      * @param a First condition
      * @param b Second condition
      * @param msg Optional: error message to display
-     * @param compareFunc Optional: the function used to compare the values. By default Print() is used.
+     * @param compareFunc Optional: the function used to compare the values. By default PrintString() is used.
      */
     static Equal(a, b, msg?, compareFunc?) {
         currentListLines := A_ListLines
@@ -195,7 +198,7 @@ class DUnit {
         if IsSet(compareFunc) && HasMethod(compareFunc)
             DUnit.Assert(compareFunc(a,b), msg ?? "Not equal", -2)
         else
-            DUnit.Assert((pa := DUnit.Print(a)) == (pb := DUnit.Print(b)), msg ?? pa ' != ' pb, -2)
+            DUnit.Assert((pa := DUnit.PrintString(a)) == (pb := DUnit.PrintString(b)), msg ?? pa ' != ' pb, -2)
         ListLines currentListLines
     }
     /**
@@ -203,7 +206,7 @@ class DUnit {
      * @param a First condition
      * @param b Second condition
      * @param msg Optional: error message to display
-     * @param compareFunc Optional: the function used to compare the values. By default Print() is used.
+     * @param compareFunc Optional: the function used to compare the values. By default PrintString() is used.
      */
     static NotEqual(a, b, msg?, compareFunc?) {
         currentListLines := A_ListLines
@@ -211,7 +214,7 @@ class DUnit {
         if IsSet(compareFunc) && HasMethod(compareFunc)
             DUnit.Assert(!compareFunc(a,b), msg ?? "Are equal", -2)
         else
-            DUnit.Assert((pa := DUnit.Print(a)) != (pb := DUnit.Print(b)), msg ?? pa ' == ' pb, -2)
+            DUnit.Assert((pa := DUnit.PrintString(a)) != (pb := DUnit.PrintString(b)), msg ?? pa ' == ' pb, -2)
         ListLines currentListLines
     }
     /**
@@ -244,7 +247,13 @@ class DUnit {
     /**
      * Internal method used to print out the results.
      */
-    Print(value) => OutputDebug(value)
+    Print(value) {
+        Result := DUnit.Print()
+        if HasMethod(Result[1])
+            Result[1].Call(value)
+        else
+            OutputDebug(value)
+    } 
 
     /**
      * Internal method used to calculate the tested scripts' effective line-count.
@@ -343,56 +352,56 @@ class DUnit {
      *     Default is newline (`n).
      */
     static Print(value?, func?, newline?) {
-        static p := "", nl := ""
+        static p := OutputDebug, nl := ""
         if IsSet(func)
             p := func
         if IsSet(newline)
             nl := newline
         if IsSet(value) {
-            val := _Print(value) nl
+            val := this.PrintString(value) nl
             return HasMethod(p) ? p(val) : val
         }
         return [p, nl]
+    }
 
-        _Print(val?) {
-            if !IsSet(val)
-                return "unset"
-            valType := Type(val)
-            switch valType, 0 {
-                case "String":
-                    return "'" StrReplace(StrReplace(StrReplace(val, "`n", "``n"), "`r", "``r"), "`t", "``t") "'"
-                case "Integer", "Float":
-                    return val
-                default:
-                    self := "", iter := "", out := ""
-                    try self := _Print(val.ToString()) ; if the object has ToString available, print it
-                    if valType != "Array" { ; enumerate object with key and value pair, except for array
-                        try {
-                            enum := val.__Enum(2) 
-                            while (enum.Call(&val1, &val2))
-                                iter .= _Print(val1) ":" _Print(val2?) ", "
-                        }
+    static PrintString(val?) {
+        if !IsSet(val)
+            return "unset"
+        valType := Type(val)
+        switch valType, 0 {
+            case "String":
+                return "'" StrReplace(StrReplace(StrReplace(val, "`n", "``n"), "`r", "``r"), "`t", "``t") "'"
+            case "Integer", "Float":
+                return val
+            default:
+                self := "", iter := "", out := ""
+                try self := this.PrintString(val.ToString()) ; if the object has ToString available, print it
+                if valType != "Array" { ; enumerate object with key and value pair, except for array
+                    try {
+                        enum := val.__Enum(2) 
+                        while (enum.Call(&val1, &val2))
+                            iter .= this.PrintString(val1) ":" this.PrintString(val2?) ", "
                     }
-                    if !IsSet(enum) { ; if enumerating with key and value failed, try again with only value
-                        try {
-                            enum := val.__Enum(1)
-                            while (enum.Call(&enumVal))
-                                iter .= _Print(enumVal?) ", "
-                        }
+                }
+                if !IsSet(enum) { ; if enumerating with key and value failed, try again with only value
+                    try {
+                        enum := val.__Enum(1)
+                        while (enum.Call(&enumVal))
+                            iter .= this.PrintString(enumVal?) ", "
                     }
-                    if !IsSet(enum) && (valType = "Object") && !self { ; if everything failed, enumerate Object props
-                        for k, v in val.OwnProps()
-                            iter .= SubStr(_Print(k), 2, -1) ":" _Print(v?) ", "
-                    }
-                    iter := SubStr(iter, 1, StrLen(iter)-2)
-                    if !self && !iter && !((valType = "Array" && val.Length = 0) || (valType = "Map" && val.Count = 0) || (valType = "Object" && ObjOwnPropCount(val) = 0))
-                        return valType ; if no additional info is available, only print out the type
-                    else if self && iter
-                        out .= "value:" self ", iter:[" iter "]"
-                    else
-                        out .= self iter
-                    return (valType = "Object") ? "{" out "}" : (valType = "Array") ? "[" out "]" : valType "(" out ")"
-            }
+                }
+                if !IsSet(enum) && (valType = "Object") && !self { ; if everything failed, enumerate Object props
+                    for k, v in val.OwnProps()
+                        iter .= SubStr(this.PrintString(k), 2, -1) ":" this.PrintString(v?) ", "
+                }
+                iter := SubStr(iter, 1, StrLen(iter)-2)
+                if !self && !iter && !((valType = "Array" && val.Length = 0) || (valType = "Map" && val.Count = 0) || (valType = "Object" && ObjOwnPropCount(val) = 0))
+                    return valType ; if no additional info is available, only print out the type
+                else if self && iter
+                    out .= "value:" self ", iter:[" iter "]"
+                else
+                    out .= self iter
+                return (valType = "Object") ? "{" out "}" : (valType = "Array") ? "[" out "]" : valType "(" out ")"
         }
     }
 
