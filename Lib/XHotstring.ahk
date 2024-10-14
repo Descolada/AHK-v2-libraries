@@ -304,20 +304,14 @@ class XHotstring {
         if IsSet(HS) {
             HS.SendFunction := OptObj["S"] = "I" ? SendInput : OptObj["S"] = "E" ? SendEvent : OptObj["S"] = "P" ? SendPlay : HS.SendFunction
             HS.Trigger := HS.UnmodifiedTrigger
-            RegExOptsExist := RegExMatch(HS.Trigger, "^([^(\\\s]+)\)", &RegExOpts:="")
-            if OptObj["C"] = 1 {
-                if RegExOptsExist && InStr(RegExOpts[], "i")
-                    HS.Trigger := StrReplace(HS.Trigger, "i", "",,, 1)
-            } else {
-                if !RegExOptsExist
-                    HS.Trigger := "i)" HS.Trigger
-                else if !InStr(RegExOpts[], "i")
-                        HS.Trigger := "i" HS.Trigger
+            RegExOptsExist := RegExMatch(HS.Trigger, "^([^(\\]+)\)", &RegExOpts:="")
+            if OptObj["C"] != 1 && !RegExOptsExist {
+                HS.Trigger := "i)" HS.Trigger
             }
             if SubStr(HS.Trigger, 1, 1) = ")"
                 HS.Trigger := SubStr(HS.Trigger, 2)
             if !OptObj["?"]
-                HS.Trigger := RegExReplace(HS.Trigger, "^([^(\\\s]+\))?", "$1(?<=\s|^)",, 1) "$"
+                HS.Trigger := RegExReplace(HS.Trigger, "^([^(\\]+\))?", "$1(?<=\s|^)",, 1) "$"
         }
     }
     static __OptionsToString(OptObj) {
