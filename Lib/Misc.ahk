@@ -1,6 +1,6 @@
 ﻿/*
 	Name: Misc.ahk
-	Version 0.4 (26.09.24)
+	Version 0.5 (15.10.24)
 	Created: 26.08.22
 	Author: Descolada (https://www.autohotkey.com/boards/viewtopic.php?f=83&t=107759)
     Credit: Coco
@@ -17,7 +17,7 @@
 	MouseTip(x?, y?, color1:="red", color2:="blue", d:=4)
 		Flashes a colorful highlight at a point for 2 seconds.
 	WindowFromPoint(X, Y) 			=> Returns the window ID at screen coordinates X and Y.
-	ConvertWinPos(X, Y, &outX, &outY, relativeFrom:=A_CoordModeMouse, relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?)
+	ConvertCoords(X, Y, &outX, &outY, relativeFrom:=A_CoordModeMouse, relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?)
 		Converts coordinates between screen, window and client.
 	WinGetInfo(WinTitle:="", Verbose := 1, WinText:="", ExcludeTitle:="", ExcludeText:="", Separator := "`n")
 		Gets info about a window (title, process name, location etc).
@@ -308,7 +308,7 @@ WindowFromPoint(X, Y) { ; by SKAN and Linear Spoon
  * @param excludeTitle Windows whose titles include this value will not be considered.
  * @param excludeText Windows whose text include this value will not be considered.
  */
-ConvertWinPos(X, Y, &outX, &outY, relativeFrom:="", relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?) {
+ConvertCoords(X, Y, &outX, &outY, relativeFrom:="", relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?) {
 	relativeFrom := relativeFrom || A_CoordModeMouse
 	if relativeFrom = relativeTo {
 		outX := X, outY := Y
@@ -348,6 +348,7 @@ ConvertWinPos(X, Y, &outX, &outY, relativeFrom:="", relativeTo:="screen", winTit
 			}
 	}
 }
+ConvertWinPos(X, Y, &outX, &outY, relativeFrom:="", relativeTo:="screen", winTitle?, winText?, excludeTitle?, excludeText?) => ConvertCoords(X, Y, &outX, &outY, relativeFrom, relativeTo, winTitle?, winText?, excludeTitle?, excludeText?)
 
 /**
  * Gets info about a window (title, process name, location etc)
