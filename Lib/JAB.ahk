@@ -978,7 +978,7 @@ class JAB {
          * @returns {JAB.JavaAccessibleContext}
          */
         FindElement(condition, scope:=4, index:=1, order:=0, startingElement:=0) {
-            local callback := 0, found, child
+            local callback := 0, found, child, c := 0
             JAB.__ExtractNamedParameters(condition, "scope", &scope, "order", &order, "startingElement", &startingElement, "callback", &callback)
             if condition.HasProp("i")
                 index := condition.i
@@ -996,17 +996,21 @@ class JAB {
                         local children := this.Children, len := children.Length + 1
                         Loop len-1 {
                             child := children[i := len-A_index]
-                            if scope&4 && found := PostOrderLastToFirstRecursiveFind(child, i "") ; Handles this child and its descendants
+                            if scope&4 && found := PostOrderLastToFirstRecursiveFind(child, i "", i) ; Handles this child and its descendants
                                 return IsObject(found) ? found : 0
-                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child, i, 1) > 0 && --index = 0
+                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && ((c := callback(child, i, 1)) > 0) && --index = 0
                                 return (child.Path := i "", child)
+                            else if c < 0
+                                break
                         }
                     } else { ; FirstToLast
                         for i, child in this.Children {
-                            if scope&4 && found := PostOrderFirstToLastRecursiveFind(child, i "") ; Handles this child and its descendants
+                            if scope&4 && found := PostOrderFirstToLastRecursiveFind(child, i "", i) ; Handles this child and its descendants
                                 return IsObject(found) ? found : 0
-                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child, i, 1) > 0 && --index = 0
+                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && ((c := callback(child, i, 1)) > 0) && --index = 0
                                 return (child.Path := i "", child)
+                            else if c < 0
+                                break
                         }
                     }
                 }
@@ -1015,62 +1019,62 @@ class JAB {
                 throw TargetError("An element matching the condition was not found", -1)
             }
             ; PreOrder
-            if scope&1 && callback(this, 1, 0) > 0 && --index = 0
+            if scope&1 && (c := callback(this, 1, 0)) > 0 && --index = 0
                 return (this.Path := "", this)
-            if scope > 1 {
+            if c >= 0 && scope > 1 {
                 if found := order&2 ? PreOrderLastToFirstRecursiveFind(this) : PreOrderFirstToLastRecursiveFind(this)
                     return found
             }
             throw TargetError("An element matching the condition was not found", -1)
-            PreOrderFirstToLastRecursiveFind(el, path:="", depth:=-1) {
+            PreOrderFirstToLastRecursiveFind(el, path:="", depth:=0) {
                 local child, found, c
-                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                if (++depth, JAB.MaxRecurseDepth > 0 && depth > JAB.MaxRecurseDepth)
                     return
                 for i, child in el.Children {
                     c := 0
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child)) > 0 && --index = 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child, i, depth)) > 0 && --index = 0
                         return (child.Path := Trim(path "," i, ","), child)
-                    else if !c && scope&4 && (found := PreOrderFirstToLastRecursiveFind(child, path "," i, depth))
+                    else if (c >= 0) && scope&4 && (found := PreOrderFirstToLastRecursiveFind(child, path "," i, depth))
                         return found
                 }
             }
-            PreOrderLastToFirstRecursiveFind(el, path:="", depth:=-1) {
+            PreOrderLastToFirstRecursiveFind(el, path:="", depth:=0) {
                 local children := el.Children, len := children.Length + 1, found, child, c
-                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                if (++depth, JAB.MaxRecurseDepth > 0 && depth > JAB.MaxRecurseDepth)
                     return
                 Loop len-1 {
                     child := children[i := len-A_index], c := 0
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child)) && --index = 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && ((c := callback(child, i, depth)) > 0) && --index = 0
                         return (child.Path := Trim(path "," i, ","), child)
-                    else if !c && scope&4 && found := PreOrderLastToFirstRecursiveFind(child, path "," i, depth)
+                    else if (c >= 0) && scope&4 && found := PreOrderLastToFirstRecursiveFind(child, path "," i, depth)
                         return found
                 }
             }
-            PostOrderFirstToLastRecursiveFind(el, path:="", depth:=1) {
+            PostOrderFirstToLastRecursiveFind(el, path:="", i:=1, depth:=1) {
                 local child, found, c := 0
-                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                if (++depth, JAB.MaxRecurseDepth > 0 && depth > JAB.MaxRecurseDepth)
                     return c
                 for i, child in el.Children {
-                    if IsObject(found := PostOrderFirstToLastRecursiveFind(child, path "," i, depth))
+                    if IsObject(found := PostOrderFirstToLastRecursiveFind(child, path "," i, i, depth))
                         return found
                     else if found = -1
                         break
                 }
-                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) > 0 && --index = 0
+                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && ((c := callback(el, i, depth)) > 0) && --index = 0
                     return (el.Path := Trim(path, ","), el)
                 return c
             }
-            PostOrderLastToFirstRecursiveFind(el, path:="", depth:=1) {
+            PostOrderLastToFirstRecursiveFind(el, path:="", i:=1, depth:=1) {
                 local children := el.Children, len := children.Length + 1, found, c := 0
-                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                if (++depth, JAB.MaxRecurseDepth > 0 && depth > JAB.MaxRecurseDepth)
                     return
                 Loop len-1 {
-                    if IsObject(found := PostOrderLastToFirstRecursiveFind(children[i := len-A_index], path "," i, depth))
+                    if IsObject(found := PostOrderLastToFirstRecursiveFind(children[i := len-A_index], path "," i, i, depth))
                         return found
                     else if found = -1
                         break
                 }
-                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) && --index = 0
+                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && ((c := callback(el, i, depth)) > 0) && --index = 0
                     return (el.Path := Trim(path, ","), el)
                 return c
             }
@@ -1097,21 +1101,26 @@ class JAB {
             ; First handle PostOrder
             if order&1 {
                 if scope > 1 {
+                    c := 0
                     if order&2 { ; LastToFirst
                         local children := this.Children, len := children.Length + 1
                         Loop len-1 {
                             child := children[i := len-A_index]
                             if scope&4
-                                PostOrderLastToFirstRecursiveFind(child, i "") ; Handles this child and its descendants
-                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child, i, 1)
+                                PostOrderLastToFirstRecursiveFind(child, i "", i) ; Handles this child and its descendants
+                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && ((c := callback(child, i, 1)) > 0)
                                 child.Path := i "", foundElements.Push(child)
+                            else if c < 0
+                                break
                         }
                     } else { ; FirstToLast
                         for i, child in this.Children {
                             if scope&4
-                                PostOrderFirstToLastRecursiveFind(child, i "") ; Handles this child and its descendants
-                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && callback(child, i, 1)
+                                PostOrderFirstToLastRecursiveFind(child, i "", i) ; Handles this child and its descendants
+                            else if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && ((c := callback(child, i, 1)) > 0)
                                 child.Path := i "", foundElements.Push(child)
+                            else if c < 0
+                                break
                         }
                     }
                 }
@@ -1120,57 +1129,59 @@ class JAB {
                 return foundElements
             }
             ; PreOrder
-            if scope&1 && callback(this)
+            if scope&1 && callback(this, 1, 0)
                 foundElements.Push(this)
             if scope > 1
                 return (order&2 ? PreOrderLastToFirstRecursiveFind(this) : PreOrderFirstToLastRecursiveFind(this), foundElements)
             return foundElements
-            PreOrderFirstToLastRecursiveFind(el, path:="", depth:=-1) {
+            PreOrderFirstToLastRecursiveFind(el, path:="", depth:=0) {
                 local child, c
-                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                if (++depth, JAB.MaxRecurseDepth > 0 && depth > JAB.MaxRecurseDepth)
                     return
                 for i, child in el.Children {
                     c := 0
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child)) > 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child, i)) > 0
                         child.Path := Trim(path "," i, ","), foundElements.Push(child)
-                    if !c && scope&4
+                    if c >= 0 && scope&4
                         PreOrderFirstToLastRecursiveFind(child, path "," i)
                 }
             }
-            PreOrderLastToFirstRecursiveFind(el, path:="", depth:=-1) {
+            PreOrderLastToFirstRecursiveFind(el, path:="", depth:=0) {
                 local children := el.Children, len := children.Length + 1, child, c
-                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                if (++depth, JAB.MaxRecurseDepth > 0 && depth > JAB.MaxRecurseDepth)
                     return
                 Loop len-1 {
                     child := children[i := len-A_index]
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child)) > 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child, i, depth)) > 0
                         child.Path := Trim(path "," i, ","), foundElements.Push(child)
-                    if !c && scope&4
+                    if c >= 0 && scope&4
                         PreOrderLastToFirstRecursiveFind(child, path "," i)
                 }
             }
-            PostOrderFirstToLastRecursiveFind(el, path:="", depth:=1) { ; called only if scope>=4
+            PostOrderFirstToLastRecursiveFind(el, path:="", i:=1, depth:=1) { ; called only if scope>=4
                 local child, c := 0
-                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                if (++depth, JAB.MaxRecurseDepth > 0 && depth > JAB.MaxRecurseDepth)
                     return c
                 for i, child in el.Children {
-                    if (c := PostOrderFirstToLastRecursiveFind(child, path "," i)) = -1
+                    if (c := PostOrderFirstToLastRecursiveFind(child, path "," i, i, depth)) = -1
                         break
                 }
-                if !c && (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) > 0
+                c := 0
+                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el, i, depth)) > 0
                     el.Path := Trim(path, ","), foundElements.Push(el)
                 return c
             }
-            PostOrderLastToFirstRecursiveFind(el, path:="", depth:=1) { ; called only if scope>=4
+            PostOrderLastToFirstRecursiveFind(el, path:="", i:=1, depth:=1) { ; called only if scope>=4
                 local children, len, c := 0
-                if JAB.MaxRecurseDepth > 0 && ++depth > JAB.MaxRecurseDepth
+                if (++depth, JAB.MaxRecurseDepth > 0 && depth > JAB.MaxRecurseDepth)
                     return c
                 children := el.Children, len := children.Length + 1
                 Loop len-1 {
-                    if (c := PostOrderLastToFirstRecursiveFind(children[i := len-A_index], path "," i)) = -1
+                    if (c := PostOrderLastToFirstRecursiveFind(children[i := len-A_index], path "," i, i, depth)) = -1
                         break
                 }
-                if !c && (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el)) > 0
+                c := 0
+                if (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el, i, depth)) > 0
                     el.Path := Trim(path, ","), foundElements.Push(el)
                 return c
             }
