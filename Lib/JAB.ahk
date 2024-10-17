@@ -214,7 +214,7 @@ class JAB {
     }
 
     static __New() {
-        try this.base := JAB()
+        try this.base.base := JAB()
     }
     __New(dll?, AutoEnableJABSwitch:=1, ForceLegacy:=0) {
         if IsSet(dll) {
@@ -489,7 +489,7 @@ class JAB {
         for k, v in this.__EventHandlers
             if v
                 DllCall(this.DllPath "\set" k "FP", "Ptr", 0, "CDecl"), CallbackFree(v)
-        DllCall("FreeLibrary", "ptr", this.DllPath)
+        DllCall("FreeLibrary", "ptr", this.__DllHandle)
     }
 
     class JavaAccessibleObject {
