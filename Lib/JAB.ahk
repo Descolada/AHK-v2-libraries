@@ -1,5 +1,111 @@
 #Requires AutoHotkey v2
 
+/*
+    Java Access Bridge is a technology that exposes the Java Accessibility API in a Microsoft Windows DLL, 
+    enabling Java applications and applets that implement the Java Accessibility API to be visible to assistive 
+    technologies on Microsoft Windows systems.
+
+    JAB is initiated when first encountered in the auto-execute section (in the #include part) or if
+    not reachable in the auto-execute section then the first time a JAB method is used. JAB by default
+    tries to detect Java install location and loads the necessary WindowsAccessBridge dll. Then it also
+    runs JABSwitch which turns on Java Accessibility Bridge. If everything went correctly then JAB takes
+    around 200ms to initiate, which means no JAB methods may be used before that. 
+
+    If JAB initialization fails (for example Java isn't installed) or a specific JAB dll is required then
+    JAB may also be initialized by creating a new JAB object:
+    `CustomJAB := JAB(dll?, AutoEnableJABSwitch:=1, ForceLegacy:=0)`
+
+    JAB properties:
+    JAB.MaxRecurseDepth => defines how deep recursive functions will travel, depth 0 = starting element. Default is unlimited. 
+    JAB.JavaVersion
+    JAB.JavaHome
+    
+    JAB methods:
+    JAB.ElementFromHandle(WinTitle:="")
+    JAB.GetFocusedElement()
+    JAB.ElementFromPoint(x?, y?)
+    JAB.IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="")
+    JAB.GetFocusedJavaWindow()
+    JAB.CompareElements(el1, el2)
+    JAB.ClearAllHighlights()
+    JAB.RegisterEvent(eventName, handler:=0)
+        Default callback function is defined as `EventHandler(event, source)`, but some events have extra arguments.
+        Note: the `event` argument is unusable, and `source` is the element that generated the event.
+
+        Possible eventName values: FocusGained, FocusLost, CaretUpdate, MouseClicked, MouseEntered,
+        MouseExited, MousePressed, MouseReleased, MenuCanceled, MenuDeselected, MenuSelected, PopupMenuCanceled, 
+        PopupMenuWillBecomeInvisible, PopupMenuWillBecomeVisible, PropertyNameChange, PropertyDescriptionChange,
+        PropertyStateChange, PropertyValueChange, PropertySelectionChange, PropertyTextChange, PropertyCaretChange,
+        PropertyVisibleDataChange, PropertyChildChange, PropertyActiveDescendentChange, PropertyTableModelChange,
+        JavaShutdown
+
+    
+    JAB entry point methods (eg JAB.ElementFromHandle) return JavaAccessibleContext objects or "elements". 
+    
+    Element properties:
+        Name, Description, LocalizedRole, Role, LocalizedStates, States, IndexInParent, Length, 
+        Depth, X, Y, W, H, Location, AccessibleComponent, AccessibleAction, AccessibleSelection, 
+        AccessibleText, IsValueInterfaceAvailable, IsActionInterfaceAvailable, IsComponentInterfaceAvailable, 
+        IsSelectionInterfaceAvailable, IsTableInterfaceAvailable, IsTextInterfaceAvailable, 
+        IsHypertextInterfaceAvailable, AvailableInterfaces, IsVisible, KeyBindings, hWnd, Parent, 
+        RootElement, Children, VisibleDescendants, VisibleDescendantsCount
+    
+    Element methods:
+        GetDescendants(scope:=4)
+        BuildUpdatedCache(properties, scope:=1)
+        GetNthChild(index)
+        Dump(scope:=1, delimiter:=" ", depth:=JAB.MaxRecurseDepth)
+        DumpAll(delimiter:=" ", maxDepth:=JAB.MaxRecurseDepth)
+        ElementFromPath(ChildPath)
+        GetPos(relativeTo:="", WinTitle?)
+        FindElement(condition, scope:=4, index:=1, order:=0, startingElement:=0)
+        FindElements(condition, scope:=4, order:=0, startingElement:=0)
+        ElementExist(condition, scope:=4, index:=1, order:=0, startingElement:=0)
+        WaitElement(condition, timeOut := -1, scope := 4, index := 1, order := 0, startingElement := 0, tick := 20)
+        WaitElementNotExist(condition, timeout := -1, scope := 4, index := 1, order := 0, startingElement := 0, tick := 20)
+        WaitNotExist(timeOut:=-1, tick := 20)
+        Normalize(condition)
+        Click(WhichButton:="", ClickCount:=1, DownOrUp:="", Relative:="", NoActivate:=False, MoveBack?)
+        ControlClick(WhichButton:="left", ClickCount:=1, Options:="", WinTitle?)
+        Highlight(showTime:=unset, color:="Red", d:=2)
+        ClearHighlight()
+        GetVersionInfo()
+
+    Elements might have specific interfaces available depending on element type:
+
+    Value interface properties:
+        Value, Maximum, Minimum
+
+    Text interface properties:
+        Text
+    Text interface methods:
+        GetTextInfo(x:=0, y:=0)
+        GetTextItems(Index)
+        GetTextSelectionInfo()
+        GetTextAttributes()
+        GetTextPos(Index)
+        GetTextRange(startc:=0, endc:=0)
+        GetTextLineBounds(Index)
+        SelectTextRange(startIndex, endIndex)
+        GetTextAttributesInRange(startIndex, endIndex)
+        GetCaretLocation(Index:=1) 
+        SetCaretPosition(Position)
+        SetTextContents(Text)
+
+    Hypertext interface properties:
+        Hyperlinks
+
+    Actions interface properties:
+        Actions
+
+    Actions interface methods:
+        DoDefaultAction()
+        DoAccessibleActions(actions)
+        SetFocus()
+
+    This is not an exhaustive list of all interfaces, there are others such as Table as well. 
+*/
+
 if (!A_IsCompiled and A_LineFile=A_ScriptFullPath)
     JAB.Viewer()
 
@@ -110,7 +216,7 @@ class JAB {
     static __New() {
         try this.base := JAB()
     }
-    __New(AutoEnableJABSwitch:=1, dll?, ForceLegacy:=0) {
+    __New(dll?, AutoEnableJABSwitch:=1, ForceLegacy:=0) {
         if IsSet(dll) {
             this.DllPath:=StrReplace(dll, ".dll")
             this.__DllHandle:=DllCall("LoadLibrary", "Str", dll, "ptr")
@@ -181,23 +287,6 @@ class JAB {
         return 0
     }
 
-    static IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") => this.base.IsJavaWindow(WinTitle, WinText, ExcludeTitle, ExcludeText)
-    IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") => DllCall(this.DllPath "\isJavaWindow", "Ptr", WinGetID(WinTitle, WinText, ExcludeTitle, ExcludeText), "Cdecl Int")
-
-    static GetFocusedJavaWindow() => this.base.GetFocusedJavaWindow()
-    GetFocusedJavaWindow() {
-        if this.IsJavaWindow(hWnd := WinExist("A"))
-            return hWnd
-        else {
-            if (this.IsJavaWindow(hWnd := ControlGetFocus(hWnd)))
-                return hWnd
-        }
-        return 0
-    }
-
-    static CompareElements(el1, el2) => this.base.CompareElements(el1, el2)
-    CompareElements(el1, el2) => el1 is JAB.JavaAccessibleContext && el2 is JAB.JavaAccessibleContext && el1.__vmID == el2.__vmID && DllCall(this.DllPath "\isSameObject", "Int", el1.__vmID, this.__acType, el1.__ac, this.__acType, el2.__ac, "Cdecl Int")
-
     static ElementFromPoint(x?, y?) => this.base.ElementFromPoint(x?, y?)
     ElementFromPoint(x?, y?) {
         if !(IsSet(x) && IsSet(y))
@@ -248,6 +337,23 @@ class JAB {
         return smallest
     }
 
+    static IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") => this.base.IsJavaWindow(WinTitle, WinText, ExcludeTitle, ExcludeText)
+    IsJavaWindow(WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") => DllCall(this.DllPath "\isJavaWindow", "Ptr", WinExist(WinTitle, WinText, ExcludeTitle, ExcludeText), "Cdecl Int")
+
+    static GetFocusedJavaWindow() => this.base.GetFocusedJavaWindow()
+    GetFocusedJavaWindow() {
+        if this.IsJavaWindow(hWnd := WinExist("A"))
+            return hWnd
+        else {
+            if (this.IsJavaWindow(hWnd := ControlGetFocus(hWnd)))
+                return hWnd
+        }
+        return 0
+    }
+
+    static CompareElements(el1, el2) => this.base.CompareElements(el1, el2)
+    CompareElements(el1, el2) => el1 is JAB.JavaAccessibleContext && el2 is JAB.JavaAccessibleContext && el1.__vmID == el2.__vmID && DllCall(this.DllPath "\isSameObject", "Int", el1.__vmID, this.__acType, el1.__ac, this.__acType, el2.__ac, "Cdecl Int")
+
     static ClearAllHighlights() => this.JavaAccessibleContext.Prototype.Highlight("clearall")
 
     __EventHandlers := JAB.Mapi(
@@ -283,8 +389,20 @@ class JAB {
             throw ValueError("Non-existant event name", -1)
         if this.__EventHandlers[eventName]
             CallbackFree(this.__EventHandlers[eventName])
-        DllCall(this.DllPath "\set" eventName "FP", "Ptr", this.__EventHandlers[eventName] := handler ? CallbackCreate(this.__HandleEvent.Bind(this, handler), "CDecl", 3) : 0, "Cdecl")
+        EventHandlerMethodName := "__Handle" (this.HasMethod(eventName) ? eventName : "") "Event"
+        DllCall(this.DllPath "\set" eventName "FP", "Ptr", this.__EventHandlers[eventName] := handler ? CallbackCreate(this.%EventHandlerMethodName%.Bind(this, handler), "CDecl", this.%EventHandlerMethodName%.MinParams - 2) : 0, "Cdecl")
     }
+    ; https://docs.oracle.com/javase/9/access/jaapi.htm
+    __HandleEvent(handler, vmID, event, source) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this))
+    __HandlePropertyNameChangeEvent(handler, vmID, event, source, oldName, newName) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this), StrGet(oldName, JAB.MAX_STRING_SIZE, "UTF-16"), StrGet(newName, JAB.MAX_STRING_SIZE, "UTF-16"))
+    __HandlePropertyDescriptionChangeEvent(handler, vmID, event, source, oldDescription, newDescription) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this), StrGet(oldDescription, JAB.MAX_STRING_SIZE, "UTF-16"), StrGet(newDescription, JAB.MAX_STRING_SIZE, "UTF-16"))
+    __HandlePropertyStateChangeEvent(handler, vmID, event, source, oldState, newState) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this), StrGet(oldState, JAB.MAX_STRING_SIZE, "UTF-16"), StrGet(newState, JAB.MAX_STRING_SIZE, "UTF-16"))
+    __HandlePropertyValueChangeEvent(handler, vmID, event, source, oldValue, newValue) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this), StrGet(oldValue, JAB.MAX_STRING_SIZE, "UTF-16"), StrGet(newValue, JAB.MAX_STRING_SIZE, "UTF-16"))
+    __HandlePropertyCaretChangeEvent(handler, vmID, event, source, oldPosition, newPosition) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this), oldPosition << 32 >> 32, newPosition << 32 >> 32)
+    __HandlePropertyChildChangeEvent(handler, vmID, event, source, oldChild, newChild) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this), JAB.JavaAccessibleContext(vmID, oldChild, this), JAB.JavaAccessibleContext(vmID, newChild, this))
+    __HandlePropertyActiveDescendentChangeEvent(handler, vmID, event, source, oldActiveDescendent, newActiveDescendent) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this), JAB.JavaAccessibleContext(vmID, oldActiveDescendent, this), JAB.JavaAccessibleContext(vmID, newActiveDescendent, this))
+    __HandlePropertyTableModelChangeEvent(handler, vmID, event, source, oldValue, newValue) => handler(JAB.JavaEvent(vmID, event, this), JAB.JavaAccessibleContext(vmID, source, this), StrGet(oldValue, JAB.MAX_STRING_SIZE, "UTF-16"), StrGet(newValue, JAB.MAX_STRING_SIZE, "UTF-16"))
+    __HandleJavaShutdownEvent(handler, vmID) => handler(vmID)
 
     ; X can be pt64 as well, in which case Y should be omitted
     static WindowFromPoint(X, Y?) { ; by SKAN and Linear Spoon
@@ -366,8 +484,6 @@ class JAB {
         }
         return 1
     }
-
-    __HandleEvent(handler, vmID, event, source) => handler(JAB.JavaAccessibleContext(vmID, source, this), event)
 
     __Delete(*) {
         for k, v in this.__EventHandlers
@@ -1241,10 +1357,10 @@ class JAB {
          * @param scope Optional TreeScope value: Element, Children, Family (Element+Children), Descendants, Subtree (=Element+Descendants). Default is Descendants.
          * @param order Optional: custom tree navigation order, one of JAB.TreeTraversalOptions values (LastToFirstOrder, PostOrder, LastToFirstPostOrder) [requires Windows 10 version 1703+]
          * @param startingElement Optional: element with which to begin the search [requires Windows 10 version 1703+]
-         * @param cacheRequest Optional: cache request object
+         * @param tick Optional: sleep duration between searches, default is 20ms
          * @returns 1 if element disappeared, 0 otherwise
          */
-        WaitElementNotExist(condition, timeout := -1, scope := 4, index := 1, order := 0, startingElement := 0, cacheRequest := 0) {
+        WaitElementNotExist(condition, timeout := -1, scope := 4, index := 1, order := 0, startingElement := 0, tick := 20) {
             local endtime
             timeOut := condition.HasOwnProp("timeOut") ? condition.timeOut : timeOut
             endtime := A_TickCount + timeout
@@ -1252,6 +1368,7 @@ class JAB {
                 try this.FindElement(condition, scope, index, order, startingElement)
                 catch
                     return 1
+                Sleep tick
             }
             return 0
         }
@@ -1259,13 +1376,14 @@ class JAB {
         /**
          * Waits for this element to not exist. Returns True if the element disappears before the timeout.
          * @param timeOut Timeout in milliseconds. Default in indefinite waiting.
+         * @param tick Optional: sleep duration between searches, default is 20ms
          */
-        WaitNotExist(timeOut:=-1) {
+        WaitNotExist(timeOut:=-1, tick := 20) {
             waitTime := A_TickCount + timeOut
             while ((timeOut < 1) ? 1 : (A_tickCount < waitTime)) {
                 if !this.Exists
                     return 1
-                Sleep 40
+                Sleep tick
             }
         }
         /**
@@ -1649,6 +1767,10 @@ class JAB {
         index := 0, row := 0, column := 0, rowExtent := 0, columnExtent := 0, isSelected := 0
     }
 
+    class JavaEvent extends JAB.JavaAccessibleObject {
+        ; Couldn't figure out how to implement
+    }
+
     class Viewer {
         __New() {
             this.Stored := {mwId:0, FilteredTreeView:Map(), TreeView:Map()}
@@ -1671,9 +1793,9 @@ class JAB {
             this.LVProps.ModifyCol(2,140)
             for _, v in this.DefaultLVPropsItems := ["Role", "LocalizedRole", "Name", "Description", "States", "LocalizedStates", "Value", "Location", "AvailableInterfaces", "KeyBindings", "IsVisible", "Id"]
                 this.LVProps.Add(,v,"")
-            this.ButCapture := this.gViewer.Add("Button", "xp+60 y+10 w130", "Start capturing (F1)")
+            this.ButCapture := this.gViewer.Add("Button", "xp+60 y+10 w130", "Start capturing (Alt+S)")
             this.ButCapture.OnEvent("Click", this.CaptureHotkeyFunc := this.GetMethod("ButCapture_Click").Bind(this))
-            HotKey("F1", this.CaptureHotkeyFunc)
+            HotKey("!s", this.CaptureHotkeyFunc)
             this.SBMain := this.gViewer.Add("StatusBar",, "  Start capturing, then hold cursor still to construct tree")
             this.SBMain.OnEvent("Click", this.GetMethod("SBMain_Click").Bind(this))
             this.SBMain.OnEvent("ContextMenu", this.GetMethod("SBMain_Click").Bind(this))
@@ -1695,6 +1817,7 @@ class JAB {
             this.TVContext.Move(,,Width-TVContextX-10,Height-TVContextY-50)
             this.TextFilterTVContext.Move(TVContextX, Height-42)
             this.EditFilterTVContext.Move(TVContextX+30, Height-45)
+            this.CBVisibleElements.Move(TVContextX+140, Height-42)
             this.TVContext.GetPos(&LVPropsX, &LVPropsY, &LVPropsWidth, &LVPropsHeight)
             this.LVProps.Move(,,,Height-LVPropsY-225)
             this.ButCapture.Move(,Height -55)
@@ -1706,11 +1829,9 @@ class JAB {
                 return
             }
             this.Capturing := True
-            HotKey("F1", this.CaptureHotkeyFunc, "Off")
-            HotKey("Esc", this.CaptureHotkeyFunc, "On")
             this.TVContext.Delete()
             this.TVContext.Add("Hold cursor still to construct tree")
-            this.ButCapture.Text := "Stop capturing (Esc)"
+            this.ButCapture.Text := "Stop capturing (Alt+S)"
             this.CaptureCallback := this.GetMethod("CaptureCycle").Bind(this)
             SetTimer(this.CaptureCallback, 200)
         }
@@ -1746,9 +1867,7 @@ class JAB {
         StopCapture(GuiCtrlObj:=0, Info:=0) {
             if this.Capturing {
                 this.Capturing := False
-                this.ButCapture.Text := "Start capturing (F1)"
-                HotKey("Esc", this.CaptureHotkeyFunc, "Off")
-                HotKey("F1", this.CaptureHotkeyFunc, "On")
+                this.ButCapture.Text := "Start capturing (Alt+S)"
                 SetTimer(this.CaptureCallback, 0)
                 if this.Stored.HasOwnProp("oContext")
                     this.Stored.oContext.Highlight()
@@ -1759,8 +1878,9 @@ class JAB {
         ; If the mouse is not moved for 1 second then constructs the JAB tree.
         CaptureCycle() {
             Thread "NoTimers"
-            MouseGetPos(&mX, &mY, &mwId)
-            if !JAB.IsJavaWindow(mwID) {
+            MouseGetPos(&mX, &mY, &mwId, &mwCtrl)
+            if !JAB.IsJavaWindow(mwID) && !JAB.IsJavaWindow(mwID := mwCtrl) {
+                JAB.ClearAllHighlights()
                 this.LVWin.Delete()
                 for v in this.DefaultLVWinItems
                     this.LVWin.Add(,v,"")
