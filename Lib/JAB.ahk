@@ -1,6 +1,11 @@
 #Requires AutoHotkey v2
 
 /*
+    Some resources used when writing this library:
+        Elgin's Java Access Bridge library: https://github.com/Elgin1/Java-Access-Bridge-for-AHK/tree/master
+        AutoIt3 junkew's JAVAUI library: https://www.autoitscript.com/forum/topic/166830-java-object-automation-and-simple-spy/
+        Some constants and definitions from AccessBridgePackages.h: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/windows/native/sun/bridge/AccessBridgePackages.h
+
     Java Access Bridge is a technology that exposes the Java Accessibility API in a Microsoft Windows DLL, 
     enabling Java applications and applets that implement the Java Accessibility API to be visible to assistive 
     technologies on Microsoft Windows systems.
@@ -104,6 +109,7 @@
         SetFocus()
 
     This is not an exhaustive list of all interfaces, there are others such as Table as well. 
+
 */
 
 if (!A_IsCompiled and A_LineFile=A_ScriptFullPath)
