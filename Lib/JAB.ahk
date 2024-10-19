@@ -1102,7 +1102,7 @@ class JAB {
         FindElement(condition, scope:=4, index:=1, order:=0, startingElement:=0) {
             local callback := 0, found, c := 0
             JAB.__ExtractNamedParameters(condition, "scope", &scope, "index", &index, "i", &index, "order", &order, "startingElement", &startingElement, "callback", &callback, "condition", &condition)
-            callback := callback || JAB.JavaAccessibleContext.Prototype.ValidateCondition.Bind(unset, condition), scope := JAB.TypeValidation.TreeScope(scope), index := JAB.TypeValidation.Integer(index, "Index"), order := JAB.TypeValidation.TreeTraversalOptions(order), startingElement := JAB.TypeValidation.Element(startingElement)
+            callback := callback || JAB.JavaAccessibleContext.Prototype.ValidateCondition.Bind(unset, condition, order), scope := JAB.TypeValidation.TreeScope(scope), index := JAB.TypeValidation.Integer(index, "Index"), order := JAB.TypeValidation.TreeTraversalOptions(order), startingElement := JAB.TypeValidation.Element(startingElement)
             if index < 0
                 order |= 2, index := -index
             else if index = 0
@@ -1167,7 +1167,7 @@ class JAB {
         FindElements(condition, scope:=4, order:=0, startingElement:=0) {
             local callback := 0, foundElements := [], c := 0
             JAB.__ExtractNamedParameters(condition, "scope", &scope, "order", &order, "startingElement", &startingElement, "callback", &callback, "condition", &condition)
-            callback := callback || JAB.JavaAccessibleContext.Prototype.ValidateCondition.Bind(unset, condition), scope := JAB.TypeValidation.TreeScope(scope), order := JAB.TypeValidation.TreeTraversalOptions(order), startingElement := JAB.TypeValidation.Element(startingElement)
+            callback := callback || JAB.JavaAccessibleContext.Prototype.ValidateCondition.Bind(unset, condition, order), scope := JAB.TypeValidation.TreeScope(scope), order := JAB.TypeValidation.TreeTraversalOptions(order), startingElement := JAB.TypeValidation.Element(startingElement)
             if startingElement
                 startingElement := startingElement.Id
             ChildOrder := order&2 ? "ReversedChildren" : "Children"
@@ -1343,18 +1343,18 @@ class JAB {
             [{Name:"Something", Role:42}, {Name:"Something2", RoleText:"something else"}] => Name=="Something" and Role==42 OR Name=="Something2" and RoleText=="something else"
             {Name:"Something", not:[RoleText:"something", RoleText:"something else"]} => Name must match "something" and RoleText cannot match "something" nor "something else"
         */
-        ValidateCondition(oCond, i?, depth?) {
+        ValidateCondition(oCond, order:=1, i?, depth?) {
             if !IsObject(oCond)
                 return !!oCond ; if oCond is not an object, then it is treated as True or False condition
             if HasMethod(oCond) {
                 return oCond(this, i?, depth?)
             } else if oCond is Array { ; or condition
                 for _, c in oCond
-                    if this.ValidateCondition(c, i?, depth?)
+                    if this.ValidateCondition(c, order, i?, depth?)
                         return 1
                 return 0
             }
-            if IsSet(i) && oCond.HasOwnProp("IsVisible") {
+            if !(order&1) && IsSet(i) && oCond.HasOwnProp("IsVisible") {
                 try {
                     if this.IsVisible = !oCond.IsVisible
                         return -1
@@ -1390,7 +1390,7 @@ class JAB {
                                     return 0
                         }
                     case "JAB.JavaAccessibleContext":
-                        if (prop="IsEqual") ? !JAB.CompareElements(this, cond) : !this.ValidateCondition(cond, i?, depth?)
+                        if (prop="IsEqual") ? !JAB.CompareElements(this, cond) : !this.ValidateCondition(cond, order, i?, depth?)
                             return 0
                     default:
                         if (HasProp(cond, "Length") ? cond.Length = 0 : ObjOwnPropCount(cond) = 0) {
@@ -1407,7 +1407,7 @@ class JAB {
                                 if (!((lprop = "relative") || (lprop = "r")) && (loc.%lprop% != lval))
                                     return 0
                             }
-                        } else if ((prop = "not") ? this.ValidateCondition(cond, i?, depth?) : !this.ValidateCondition(cond, i?, depth?))
+                        } else if ((prop = "not") ? this.ValidateCondition(cond, order, i?, depth?) : !this.ValidateCondition(cond, order, i?, depth?))
                             return 0
                 }
             }
