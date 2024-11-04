@@ -253,16 +253,16 @@ class HotstringRecognizer {
         static DeviceSize := 2 * A_PtrSize, iSize := 0, sz := 0, pcbSize:=8+2*A_PtrSize, offsets := {usButtonFlags: (12+2*A_PtrSize), x: (20+A_PtrSize*2), y: (24+A_PtrSize*2)}, uRawInput
         ; Get hDevice from RAWINPUTHEADER to identify which mouse this data came from
         header := Buffer(pcbSize, 0)
-        If !DllCall("GetRawInputData", "UPtr", lParam, "uint", 0x10000005, "Ptr", header, "Uint*", &pcbSize, "Uint", pcbSize)
+        If !DllCall("GetRawInputData", "Ptr", lParam, "uint", 0x10000005, "Ptr", header, "Uint*", &pcbSize, "Uint", pcbSize)
             return 0
         ThisMouse := NumGet(header, 8, "UPtr")
         ; Find size of rawinput data - only needs to be run the first time.
         if (!iSize) {
-            r := DllCall("GetRawInputData", "UInt", lParam, "UInt", 0x10000003, "Ptr", 0, "UInt*", &iSize, "UInt", 8 + (A_PtrSize * 2))
+            r := DllCall("GetRawInputData", "Ptr", lParam, "UInt", 0x10000003, "Ptr", 0, "UInt*", &iSize, "UInt", 8 + (A_PtrSize * 2))
             uRawInput := Buffer(iSize, 0)
         }
         ; Get RawInput data
-        r := DllCall("GetRawInputData", "UInt", lParam, "UInt", 0x10000003, "Ptr", uRawInput, "UInt*", &sz := iSize, "UInt", 8 + (A_PtrSize * 2))
+        r := DllCall("GetRawInputData", "Ptr", lParam, "UInt", 0x10000003, "Ptr", uRawInput, "UInt*", &sz := iSize, "UInt", 8 + (A_PtrSize * 2))
 
         usButtonFlags := NumGet(uRawInput, offsets.usButtonFlags, "ushort")
         
