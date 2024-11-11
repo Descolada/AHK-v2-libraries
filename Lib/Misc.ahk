@@ -99,27 +99,18 @@ Swap(&a, &b) {
 }
 
 /**
- * Prints the formatted value of a variable (number, string, object).
- * Leaving all parameters empty will return the current function and newline in an Array: [func, newline]
- * @param value Optional: the variable to print. 
- *     If omitted then new settings (output function and newline) will be set.
- *     If value is an object/class that has a ToString() method, then the result of that will be printed.
- * @param func Optional: the print function to use. Default is OutputDebug.
- *     Not providing a function will cause the Print output to simply be returned as a string.
- * @param newline Optional: the newline character to use (applied to the end of the value). 
- *     Default is newline (`n).
+ * Create a function that will print a string with the given function or to a string.
+ * OutputFunc and Newline can be changed later on by modifying the property with the same name.
+ * @param OutputFunc The function to print the string. Default is no function (simply returns a string).
+ * @param NewLine New line separator added to the end of the string. Default is `n
+ * @returns {Func}
+ * @example 
+ * 	MB := Printer(MsgBox)
+ * 	MB([1,2,3])
  */
-Print(value?, func?, newline?) {
-	static p := OutputDebug, nl := "`n"
-	if IsSet(func)
-		p := func
-	if IsSet(newline)
-		nl := newline
-	if IsSet(value) {
-		val := IsObject(value) ? ToString(value) nl : value nl
-		return HasMethod(p) ? p(val) : val
-	}
-	return [p, nl]
+class Printer {
+	__New(OutputFunc:=0, Newline := "`n") => (this.Newline := Newline, this.OutputFunc := OutputFunc)
+	Call(val?) => ((str := !IsSet(val) || IsObject(val) ? ToString(val?) this.Newline : val this.Newline), this.OutputFunc ? this.OutputFunc.Call(str) : str)
 }
 
 /**
@@ -631,4 +622,88 @@ IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2) {
 	NumPut("int", l2, "int", t2, "int", r2, "int", b2, rect2)
 	if DllCall("user32\IntersectRect", "Ptr", rectOut, "Ptr", rect1, "Ptr", rect2)
 		return {l:NumGet(rectOut, 0, "Int"), t:NumGet(rectOut, 4, "Int"), r:NumGet(rectOut, 8, "Int"), b:NumGet(rectOut, 12, "Int")}
+}
+
+/**
+ * Gets the position, size, and offset of a window. See the *Remarks* section for more information.
+ * Source: https://www.autohotkey.com/boards/viewtopic.php?f=6&t=3392
+ * Additional credits: original idea and some code from *KaFu* (AutoIt forum)
+ * @param WinTitle Target window title or handle
+ * @param X Optional: contains the screen x-coordinate of the window
+ * @param Y Optional: contains the screen y-coordinate of the window
+ * @param Width Optional: contains the width of the window
+ * @param Height Optional: contains the height of the window
+ * @param Offset_X Optional: Offset, in pixels, of the actual position of the window versus the 
+ * position of the window as reported by WinGetPos or GetWindowRect.  If moving the window to specific
+ * coordinates, add these offset values to the appropriate coordinate (X and/or Y) to reflect the true size of the window.
+ * @param Offset_Y Optional: see offsetX
+ * @returns {Integer} Returns 0 if failed, otherwise the window handle
+ * 
+ * Remarks:
+ * 
+ * Starting with Windows Vista, Microsoft includes the Desktop Window Manager
+ * (DWM) along with Aero-based themes that use DWM.  Aero themes provide new
+ * features like a translucent glass design with subtle window animations.
+ * Unfortunately, the DWM doesn't always conform to the OS rules for size and
+ * positioning of windows.  If using an Aero theme, many of the windows are
+ * actually larger than reported by Windows when using standard commands (Ex:
+ * WinGetPos, GetWindowRect, etc.) and because of that, are not positioned
+ * correctly when using standard commands (Ex: Gui.Show, WinMove, etc.).  This
+ * function was created to 1) identify the true position and size of all
+ * windows regardless of the window attributes, desktop theme, or version of
+ * Windows and to 2) identify the appropriate offset that is needed to position
+ * the window if the window is a different size than reported.
+ * 
+ * The true size, position, and offset of a window cannot be determined until
+ * the window has been rendered.  See the example script for an example of how
+ * to use this function to position a new window.
+ */
+WinGetPosEx(WinTitle:="", &X := "", &Y := "", &Width := "", &Height := "", &Offset_X := 0, &Offset_Y := 0) {
+	static S_OK := 0x0, DWMWA_EXTENDED_FRAME_BOUNDS := 9
+	local RECT := Buffer(16, 0), RECTPlus := Buffer(24,0)
+	if !(WinTitle is Integer)
+		WinTitle := WinGetID(WinTitle)
+	try DWMRC := DllCall("dwmapi\DwmGetWindowAttribute", "Ptr",  WinTitle, "UInt", DWMWA_EXTENDED_FRAME_BOUNDS, "Ptr",  RECTPlus, "UInt", 16, "UInt")
+	catch
+	   return 0
+	X := NumGet(RECTPlus, 0, "Int")
+	Y := NumGet(RECTPlus, 4, "Int")
+	R := NumGet(RECTPlus, 8, "Int")
+	B := NumGet(RECTPlus, 12, "Int")
+	Width := R - X
+	Height := B - Y
+	Offset_X := 0
+	Offset_Y := 0
+	DllCall("GetWindowRect", "Ptr", WinTitle,"Ptr", RECT)
+	Offset_X := (Width - (NumGet(RECT,  8, "Int") - NumGet(RECT, 0, "Int"))) // 2
+	Offset_Y := (Height - (NumGet(RECT, 12, "Int") - NumGet(RECT, 4, "Int"))) // 2
+	return WinTitle
+}
+
+/**
+ * Moves the window based on the visual attributes of the window (adjusts for invisible borders).
+ * @param X If omitted, the position in the X dimension will not be changed. Otherwise, specify 
+ * the X coordinate (in pixels) of the upper left corner of the target window's new location. 
+ * The upper-left pixel of the screen is at 0, 0.
+ * @param Y If omitted, the position in the Y dimension will not be changed. Otherwise, specify 
+ * the Y coordinate (in pixels) of the upper left corner of the target window's new location. 
+ * The upper-left pixel of the screen is at 0, 0.
+ * @param Width If omitted, the width will not be changed. Otherwise, specify the new width of the window (in pixels).
+ * @param Height If omitted, the height will not be changed. Otherwise, specify the new height of the window (in pixels).
+ * @param WinTitle WinTitle, same as normal WinMove
+ * @param WinText Same as normal WinMove
+ * @param ExcludeTitle Same as normal WinMove
+ * @param ExcludeText Same as normal WinMove
+ */
+WinMoveEx(X?, Y?, Width?, Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
+	WinGetPosEx(hWnd := WinGetID(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?),,,,, &offsetX, &offsetY)
+	if IsSet(X)
+		X += offsetX
+	if IsSet(Y)
+		Y += offsetY
+	if IsSet(Width)
+		Width -= 2*offsetX
+	if IsSet(Height)
+		Height -= 2*offsetY
+	return WinMove(X?, Y?, Width?, Height?, hWnd)
 }
