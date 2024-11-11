@@ -1,6 +1,6 @@
 ﻿/*
 	Name: Misc.ahk
-	Version 0.5 (15.10.24)
+	Version 1.0 (11.11.24)
 	Created: 26.08.22
 	Author: Descolada (https://www.autohotkey.com/boards/viewtopic.php?f=83&t=107759)
     Credit: Coco
@@ -8,7 +8,7 @@
 	Range(stop)						=> Returns an iterable to count from 1..stop
 	Range(start, stop [, step])		=> Returns an iterable to count from start to stop with step
 	Swap(&a, &b)					=> Swaps the values of a and b
-	Print(value?, func?, newline?) 	=> Prints the formatted value of a variable (number, string, array, map, object)
+	Printer(func?) 					=> Create a function that will print a string with the given function or to a string.
 	RegExMatchAll(haystack, needleRegEx [, startingPosition := 1])
 	    Returns all RegExMatch results (RegExMatchInfo objects) for needleRegEx in haystack 
 		in an array: [RegExMatchInfo1, RegExMatchInfo2, ...]
@@ -24,11 +24,15 @@
 	WinWaitNew(WinTitle:="", WinText:="", TimeOut:="", ExcludeTitle:="", ExcludeText:="")
 		Waits for a new instance of a window matching the criteria.
 	GetCaretPos(&X?, &Y?, &W?, &H?)
-		Gets the position of the caret with CaretGetPos, Acc or UIA.
+		Gets the position of the caret with CaretGetPos, Acc, Java Access Bridge or UIA.
 	IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2)
 		Checks whether two rectangles intersect and if they do, then returns an object containing the
 		rectangle of the intersection: {l:left, t:top, r:right, b:bottom}
-
+	WinGetPosEx(WinTitle:="", &X := "", &Y := "", &Width := "", &Height := "", &Offset_X := 0, &Offset_Y := 0)
+		Returns the window coordinates based on visible attributes of the window (Offset_X and Offset_Y are set 
+		to the width of the invisible DWM borders).
+	WinMoveEx(X?, Y?, Width?, Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
+		Moves the window based on the visual attributes of the window (adjusts for invisible DWM borders).
 */
 
 /**
@@ -634,7 +638,7 @@ IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2) {
  * @param Width Optional: contains the width of the window
  * @param Height Optional: contains the height of the window
  * @param Offset_X Optional: Offset, in pixels, of the actual position of the window versus the 
- * position of the window as reported by WinGetPos or GetWindowRect.  If moving the window to specific
+ * position of the window as reported by WinGetPos or GetWindowRect. If moving the window to specific
  * coordinates, add these offset values to the appropriate coordinate (X and/or Y) to reflect the true size of the window.
  * @param Offset_Y Optional: see offsetX
  * @returns {Integer} Returns 0 if failed, otherwise the window handle
