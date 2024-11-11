@@ -1,6 +1,6 @@
 ﻿/*
 	Name: Misc.ahk
-	Version 1.0 (11.11.24)
+	Version 1.0.1 (11.11.24)
 	Created: 26.08.22
 	Author: Descolada (https://www.autohotkey.com/boards/viewtopic.php?f=83&t=107759)
     Credit: Coco
@@ -28,9 +28,9 @@
 	IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2)
 		Checks whether two rectangles intersect and if they do, then returns an object containing the
 		rectangle of the intersection: {l:left, t:top, r:right, b:bottom}
-	WinGetPosEx(WinTitle:="", &X := "", &Y := "", &Width := "", &Height := "", &Offset_X := 0, &Offset_Y := 0)
-		Returns the window coordinates based on visible attributes of the window (Offset_X and Offset_Y are set 
-		to the width of the invisible DWM borders).
+	WinGetPosEx(WinTitle:="", &X := "", &Y := "", &Width := "", &Height := "", &LeftBorder := 0, &TopBorder := 0, &RightBorder := 0, &BottomBorder := 0)
+		Returns the window coordinates based on visible attributes of the window (Border arguments are set 
+		to the corresponding thickness of the invisible DWM borders).
 	WinMoveEx(X?, Y?, Width?, Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?)
 		Moves the window based on the visual attributes of the window (adjusts for invisible DWM borders).
 */
@@ -637,10 +637,10 @@ IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2) {
  * @param Y Optional: contains the screen y-coordinate of the window
  * @param Width Optional: contains the width of the window
  * @param Height Optional: contains the height of the window
- * @param Offset_X Optional: Offset, in pixels, of the actual position of the window versus the 
- * position of the window as reported by WinGetPos or GetWindowRect. If moving the window to specific
- * coordinates, add these offset values to the appropriate coordinate (X and/or Y) to reflect the true size of the window.
- * @param Offset_Y Optional: see offsetX
+ * @param LeftBorder Optional: thickness of the invisible left border
+ * @param TopBorder Optional: thickness of the invisible top border
+ * @param RightBorder Optional: thickness of the invisible right border
+ * @param BottomBorder Optional: thickness of the invisible bottom border
  * @returns {Integer} Returns 0 if failed, otherwise the window handle
  * 
  * Remarks:
@@ -662,25 +662,21 @@ IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2) {
  * the window has been rendered.  See the example script for an example of how
  * to use this function to position a new window.
  */
-WinGetPosEx(WinTitle:="", &X := "", &Y := "", &Width := "", &Height := "", &Offset_X := 0, &Offset_Y := 0) {
+WinGetPosEx(WinTitle:="", &X := "", &Y := "", &Width := "", &Height := "", &LeftBorder := 0, &TopBorder := 0, &RightBorder := 0, &BottomBorder := 0) {
 	static S_OK := 0x0, DWMWA_EXTENDED_FRAME_BOUNDS := 9
-	local RECT := Buffer(16, 0), RECTPlus := Buffer(24,0)
+	local RECT := Buffer(16, 0), RECTPlus := Buffer(24,0), R, B
 	if !(WinTitle is Integer)
 		WinTitle := WinGetID(WinTitle)
-	try DWMRC := DllCall("dwmapi\DwmGetWindowAttribute", "Ptr",  WinTitle, "UInt", DWMWA_EXTENDED_FRAME_BOUNDS, "Ptr",  RECTPlus, "UInt", 16, "UInt")
+	DllCall("GetWindowRect", "Ptr", WinTitle, "Ptr", RECT)
+	try DWMRC := DllCall("dwmapi\DwmGetWindowAttribute", "Ptr",  WinTitle, "UInt", DWMWA_EXTENDED_FRAME_BOUNDS, "Ptr", RECTPlus, "UInt", 16, "UInt")
 	catch
 	   return 0
-	X := NumGet(RECTPlus, 0, "Int")
-	Y := NumGet(RECTPlus, 4, "Int")
-	R := NumGet(RECTPlus, 8, "Int")
-	B := NumGet(RECTPlus, 12, "Int")
+	X := NumGet(RECTPlus, 0, "Int"), LeftBorder := X - NumGet(RECT, 0, "Int")
+	Y := NumGet(RECTPlus, 4, "Int"), TopBorder := Y - NumGet(RECT, 4, "Int")
+	R := NumGet(RECTPlus, 8, "Int"), RightBorder := NumGet(RECT,  8, "Int") - R
+	B := NumGet(RECTPlus, 12, "Int"), BottomBorder := NumGet(RECT,  12, "Int") - B
 	Width := R - X
 	Height := B - Y
-	Offset_X := 0
-	Offset_Y := 0
-	DllCall("GetWindowRect", "Ptr", WinTitle,"Ptr", RECT)
-	Offset_X := (Width - (NumGet(RECT,  8, "Int") - NumGet(RECT, 0, "Int"))) // 2
-	Offset_Y := (Height - (NumGet(RECT, 12, "Int") - NumGet(RECT, 4, "Int"))) // 2
 	return WinTitle
 }
 
@@ -700,14 +696,14 @@ WinGetPosEx(WinTitle:="", &X := "", &Y := "", &Width := "", &Height := "", &Offs
  * @param ExcludeText Same as normal WinMove
  */
 WinMoveEx(X?, Y?, Width?, Height?, WinTitle?, WinText?, ExcludeTitle?, ExcludeText?) {
-	WinGetPosEx(hWnd := WinGetID(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?),,,,, &offsetX, &offsetY)
+	WinGetPosEx(hWnd := WinGetID(WinTitle?, WinText?, ExcludeTitle?, ExcludeText?),,,,, &LeftBorder := 0, &TopBorder := 0, &RightBorder := 0, &BottomBorder := 0)
 	if IsSet(X)
-		X += offsetX
+		X -= LeftBorder
 	if IsSet(Y)
-		Y += offsetY
+		Y -= TopBorder
 	if IsSet(Width)
-		Width -= 2*offsetX
+		Width += LeftBorder + RightBorder
 	if IsSet(Height)
-		Height -= 2*offsetY
+		Height += TopBorder + BottomBorder
 	return WinMove(X?, Y?, Width?, Height?, hWnd)
 }
