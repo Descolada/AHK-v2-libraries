@@ -21,7 +21,6 @@ docked.Move(X+W+offsetX, Y,, H)
 
 WinEvent.Move(TargetMoved, target)
 WinEvent.Close((*) => ExitApp(), target)
-Persistent()
 
 TargetMoved(hWnd, *) {
    local X, Y, W, H

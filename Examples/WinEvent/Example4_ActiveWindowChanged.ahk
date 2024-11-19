@@ -3,7 +3,6 @@
 #include ..\..\Lib\Misc.ahk
 
 WinEvent.Active(ActiveWindowChanged)
-Persistent()
 
 ActiveWindowChanged(hWnd, *) {
     ToolTip "Active window changed! New window info: `n" WinGetInfo(hWnd)

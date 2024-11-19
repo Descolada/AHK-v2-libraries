@@ -8,7 +8,6 @@
 ; to capture. In the case of Notepad we could use "ahk_class Notepad ahk_exe notepad.exe" to filter
 ; for the main window, but that method isn't generalizable, so WinEvent.Show is a safer option.
 WinEvent.Show(NotepadCreated, "ahk_exe notepad.exe")
-Persistent()
 
 NotepadCreated(hWnd, hook, dwmsEventTime) {
     ToolTip "Notepad was created at " dwmsEventTime ", hWnd " hWnd "`n"

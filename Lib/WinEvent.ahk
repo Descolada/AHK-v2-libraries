@@ -314,6 +314,7 @@ class WinEvent {
          * @returns {WinEventHook} 
          */
         __New(callbackFunc, eventMin?, eventMax?, winTitle := 0, PID := 0, flags := 0) {
+            Persistent()
             if !IsSet(eventMin)
                 eventMin := 0x00000001, eventMax := IsSet(eventMax) ? eventMax : 0x7fffffff
             else if !IsSet(eventMax)
