@@ -7,8 +7,11 @@
  * 
  * All the event initiation methods have the same syntax: 
  * `WinEvent.EventType(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="")`
- * where Callback is the function that will be called once the event happened, and Count specifies
- * the maximum amount of callbacks. 
+ *      where Callback is the function that will be called once the event happened, and Count specifies
+ *      the maximum amount of callbacks. 
+ * `Close` and `NotExist` additionally have the `PropertyCallback` argument as the last one, which accepts
+ *      a window handle and returns property/properties of interest. Eg `Callback(hWnd) => WinGetTitle(hWnd)`
+ *      This callback gets called when a matching window is created or the window title changes.
  * The function returns an event hook object that describes the hook (see descriptions down below).
  * NOTE: if all WinTitle criteria are left empty then any window will match. To match for Last Found
  *       Window, use WinExist() as WinTitle.
@@ -17,6 +20,7 @@
  *      `hWnd`         : the window handle that triggered the event
  *      `eventObj`     : the event hook object describing the hook (see the next section about "Hook object")
  *      `dwmsEventTime`: the `A_TickCount` for when the event happened
+ *      `properties`   : only used for `Close` and `NotExist`: contains the latest result of `PropertyCallback`
  * If the callback returns 0 (default return value of functions) then `EventHook.Count` is decremented by one.
  * Otherwise the count is not decremented.
  * 
@@ -71,12 +75,14 @@ class WinEvent {
            EVENT_SYSTEM_MOVESIZESTART  := 0x000A,
            EVENT_SYSTEM_MOVESIZEEND    := 0x000B,
            EVENT_SYSTEM_FOREGROUND     := 0x0003,
-           EVENT_OBJECT_NAMECHANGE     := 0x800C
+           EVENT_OBJECT_NAMECHANGE     := 0x800C,
+           EVENT_OBJECT_CLOAKED        := 0x8017,
+           EVENT_OBJECT_HIDE           := 0x8003
 
     /**
      * When a window is shown. Usually the window is detectable with DetectHiddenWindows disabled,
      * but testing shows that some windows trigger the Show event and remain hidden for some time.
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -88,7 +94,7 @@ class WinEvent {
     /**
      * When a window is created, but not necessarily shown. 
      * This may return hidden windows (may require DetectHiddenWindows True).
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -98,20 +104,25 @@ class WinEvent {
         this("Create", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
     
     /**
-     * When a window is destroyed/closed
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * When a window is destroyed, closed, or hidden (if DetectHiddenWindows is Off). This differs 
+     * from `WinWaitClose` in the aspect that a window title change does not trigger the callback. 
+     * Use `NotExist` to also trigger with title changes. 
+     * @param {(hWnd, eventObj, dwmsEventTime, properties) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * - `properties`   : result of `PropertyCallback`
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @param {(hWnd) => Any} PropertyCallback An optional callback function that gets called once a
+     * new window matching the criteria is created or happens due to a title change.
      * @returns {WinEvent} 
      */
-    static Close(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
-        this("Close", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
+    static Close(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="", PropertyCallback:="") => 
+        this("Close", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText], PropertyCallback)
 
     /**
      * When a window with a specified title exists (triggered after a window is created or title is changed).
      * This may return hidden windows (may require DetectHiddenWindows True).
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -122,18 +133,21 @@ class WinEvent {
 
     /**
      * When a window no longer matches the WinTitle criteria, either after being destroyed or after a title change
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime, properties) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
+     * - `properties`   : the result of `PropertyCallback`
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
+     * @param {(hWnd) => Any} PropertyCallback An optional callback function that gets called once a
+     * new window matching the criteria is created or happens due to a title change.
      * @returns {WinEvent} 
      */
-    static NotExist(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="") => 
-        this("NotExist", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText])
+    static NotExist(Callback, WinTitle:="", Count:=-1, WinText:="", ExcludeTitle:="", ExcludeText:="", PropertyCallback:="") => 
+        this("NotExist", Callback, Count, [WinTitle, WinText, ExcludeTitle, ExcludeText], PropertyCallback)
 
     /**
      * When a window is activated/focused
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -144,7 +158,7 @@ class WinEvent {
 
     /**
      * When a window is inactivated/unfocused
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -158,7 +172,7 @@ class WinEvent {
 
     /**
      * When a window is moved or resized
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -169,7 +183,7 @@ class WinEvent {
 
     /**
      * When a window is starting to be moved or resized
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -180,7 +194,7 @@ class WinEvent {
 
     /**
      * When a window has been moved or resized
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -191,7 +205,7 @@ class WinEvent {
 
     /**
      * When a window is minimized
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -202,7 +216,7 @@ class WinEvent {
 
     /**
      * When a window is restored
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -213,7 +227,7 @@ class WinEvent {
 
     /**
      * When a window is maximized
-     * @param {(eventObj, hWnd, dwmsEventTime) => Integer} Callback
+     * @param {(hWnd, eventObj, dwmsEventTime) => Integer} Callback
      * - `hWnd`         : the window handle that triggered the event
      * - `dwmsEventTime`: the `A_TickCount` for when the event happened
      * @param {Number} Count Limits the number of times the callback will be called (eg for a one-time event set `Count` to 1).
@@ -324,9 +338,9 @@ class WinEvent {
     ; ONLY INTERNAL METHODS AHEAD
 
     static __RequiredHooks := Map("Show", [this.EVENT_OBJECT_SHOW], "Create", [this.EVENT_OBJECT_CREATE]
-        , "Close", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_NAMECHANGE, this.EVENT_OBJECT_DESTROY]
+        , "Close", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_SHOW, this.EVENT_OBJECT_NAMECHANGE, this.EVENT_OBJECT_DESTROY, this.EVENT_OBJECT_CLOAKED, this.EVENT_OBJECT_HIDE]
         , "Exist", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_SHOW, this.EVENT_OBJECT_NAMECHANGE]
-        , "NotExist", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_NAMECHANGE, this.EVENT_OBJECT_DESTROY]
+        , "NotExist", [this.EVENT_OBJECT_CREATE, this.EVENT_OBJECT_SHOW, this.EVENT_OBJECT_NAMECHANGE, this.EVENT_OBJECT_DESTROY, this.EVENT_OBJECT_CLOAKED, this.EVENT_OBJECT_HIDE]
         , "Active", [this.EVENT_SYSTEM_FOREGROUND, this.EVENT_OBJECT_NAMECHANGE], "NotActive", [this.EVENT_SYSTEM_FOREGROUND, this.EVENT_OBJECT_NAMECHANGE]
         , "Move", [this.EVENT_OBJECT_LOCATIONCHANGE], "MoveStart", [this.EVENT_SYSTEM_MOVESIZESTART]
         , "MoveEnd", [this.EVENT_SYSTEM_MOVESIZEEND], "Minimize", [this.EVENT_SYSTEM_MINIMIZESTART]
@@ -368,11 +382,12 @@ class WinEvent {
     }
     ; Internal use: creates a new WinEvent object, which contains info about the registered event
     ; such as the type, callback function, match criteria etc.
-    __New(EventType, Callback, Count, MatchCriteria) {
+    __New(EventType, Callback, Count, MatchCriteria, PropertyCallback:="") {
         __WinEvent := this.__WinEvent, this.EventType := EventType, this.MatchCriteria := MatchCriteria
             , this.Callback := Callback, this.Count := Count, this.IsPaused := 0
             , this.TitleMatchMode := A_TitleMatchMode, this.TitleMatchModeSpeed := A_TitleMatchModeSpeed
             , this.DetectHiddenWindows := A_DetectHiddenWindows, this.DetectHiddenText := A_DetectHiddenText
+            , this.PropertyCallback := PropertyCallback, this.MatchingWinList := Map()
         MatchCriteria[1] := __WinEvent.__DeobjectifyWinTitle(MatchCriteria[1])
         this.MatchCriteria.IsBlank := (MatchCriteria[1] == "" && MatchCriteria[2] == "" && MatchCriteria[3] == "" && MatchCriteria[4] == "")
         if InStr(MatchCriteria[1], "ahk_id")
@@ -382,13 +397,17 @@ class WinEvent {
         else
             this.MatchCriteria.ahk_id := 0
         if EventType = "Close" || EventType = "NotExist" || EventType = "Restore" {
-            this.__UpdateMatchingWinList()
+            for hWnd in WinGetList(MatchCriteria*)
+                this.__UpdateMatchingWinList(hWnd)
         } else if EventType = "NotActive" {
             try this.__IsActive := WinActive(MatchCriteria*)
             catch
                 this.__IsActive := 0
-        } else if EventType = "Exist" && (this.__UpdateMatchingWinList(), hWnd := WinExist(MatchCriteria*)) {
-            __WinEvent.__EventQueue.Push(Callback.Bind(hWnd, this, A_TickCount))
+        } else if EventType = "Exist" {
+            for hWnd in WinGetList(MatchCriteria*)
+                this.__UpdateMatchingWinList(hWnd)
+            if hWnd := WinExist(MatchCriteria*)
+                __WinEvent.__EventQueue.Push(Callback.Bind(hWnd, this, A_TickCount))
         } else if EventType = "Create" || EventType = "Show" {
             this.DetectHiddenWindows := 1, this.DetectHiddenText := 1
         }
@@ -419,7 +438,10 @@ class WinEvent {
     ; Internal use: handles the event called by SetWinEventHook. 
     static __HandleWinEvent(hWinEventHook, event, hwnd, idObject, idChild, idEventThread, dwmsEventTime) {
         Critical -1
-        static OBJID_WINDOW := 0, OBJID_CURSOR := 0xFFFFFFF7, INDEXID_CONTAINER := 0, EVENT_OBJECT_CREATE := 0x8000, EVENT_OBJECT_DESTROY := 0x8001, EVENT_OBJECT_SHOW := 0x8002, EVENT_OBJECT_FOCUS := 0x8005, EVENT_OBJECT_LOCATIONCHANGE := 0x800B, EVENT_SYSTEM_MINIMIZESTART := 0x0016, EVENT_SYSTEM_MINIMIZEEND := 0x0017, EVENT_SYSTEM_MOVESIZESTART := 0x000A, EVENT_SYSTEM_MOVESIZEEND := 0x000B, EVENT_SYSTEM_FOREGROUND := 0x0003, EVENT_OBJECT_NAMECHANGE := 0x800C ; These are duplicated here for performance reasons
+        static OBJID_WINDOW := 0, OBJID_CURSOR := 0xFFFFFFF7, INDEXID_CONTAINER := 0, EVENT_OBJECT_CREATE := 0x8000, EVENT_OBJECT_DESTROY := 0x8001
+            , EVENT_OBJECT_SHOW := 0x8002, EVENT_OBJECT_FOCUS := 0x8005, EVENT_OBJECT_LOCATIONCHANGE := 0x800B, EVENT_SYSTEM_MINIMIZESTART := 0x0016
+            , EVENT_SYSTEM_MINIMIZEEND := 0x0017, EVENT_SYSTEM_MOVESIZESTART := 0x000A, EVENT_SYSTEM_MOVESIZEEND := 0x000B, EVENT_SYSTEM_FOREGROUND := 0x0003
+            , EVENT_OBJECT_NAMECHANGE := 0x800C, EVENT_OBJECT_CLOAKED := 0x8017, EVENT_OBJECT_HIDE := 0x8003 ; These are duplicated here for performance reasons
         if this.IsPaused
             return
 
@@ -429,29 +451,28 @@ class WinEvent {
 
         local HookObj, MatchCriteria
 
-        if (event = EVENT_OBJECT_DESTROY) {
-            for EventName in ["Close", "NotExist"] {
+        if (event = EVENT_OBJECT_DESTROY || event = EVENT_OBJECT_CLOAKED || event = EVENT_OBJECT_HIDE) {
+            for EventName in ["Close", "NotExist"]
                 for MatchCriteria, HookObj in this.__RegisteredEvents[EventName] {
-                    if !HookObj.IsPaused && HookObj.MatchingWinList.Has(hWnd)
-                        this.__AddCallbackToQueue(hWnd, HookObj, dwmsEventTime)
-                    HookObj.__UpdateMatchingWinList()
+                    if !HookObj.IsPaused && HookObj.MatchingWinList.Has(hWnd) && !WinExist(HookObj.DetectHiddenWindows ? hWnd : "ahk_id" hWnd)
+                        this.__AddCallbackToQueue(hWnd, HookObj, dwmsEventTime, HookObj.MatchingWinList[hWnd])
+                    HookObj.__UpdateMatchingWinList(hWnd)
                 }
-            }
             goto Cleanup
         }
         if !(hWnd = DllCall("GetAncestor", "Ptr", hWnd, "UInt", 2, "Ptr")) || (event = EVENT_SYSTEM_FOREGROUND && hWnd != DllCall("GetForegroundWindow", "ptr"))
             goto Cleanup
-        if (event = EVENT_OBJECT_NAMECHANGE || event = EVENT_OBJECT_CREATE) {
+        if (event = EVENT_OBJECT_NAMECHANGE || event = EVENT_OBJECT_CREATE || event = EVENT_OBJECT_SHOW) {
             if (event = EVENT_OBJECT_NAMECHANGE) {
                 for MatchCriteria, HookObj in this.__RegisteredEvents["NotExist"] {
                     if !HookObj.IsPaused && HookObj.MatchingWinList.Has(hWnd) && !((A_DetectHiddenWindows := HookObj.DetectHiddenWindows, A_DetectHiddenText := HookObj.DetectHiddenText, A_TitleMatchMode := HookObj.TitleMatchMode, A_TitleMatchModeSpeed := HookObj.TitleMatchModeSpeed, 
                         MatchCriteria.ahk_id) ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4]))
-                        this.__AddCallbackToQueue(hWnd, HookObj, dwmsEventTime)
+                        this.__AddCallbackToQueue(hWnd, HookObj, dwmsEventTime, HookObj.MatchingWinList[hWnd])
                 }
             }
             for EventName in ["Close", "NotExist", "Restore"] {
                 for MatchCriteria, HookObj in this.__RegisteredEvents[EventName]
-                    HookObj.__UpdateMatchingWinList()
+                    HookObj.__UpdateMatchingWinList(hWnd)
             }
         }
         if (event = EVENT_OBJECT_LOCATIONCHANGE) {
@@ -472,7 +493,7 @@ class WinEvent {
                         MatchCriteria.ahk_id) ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4]))) {
                     this.__AddCallbackToQueue(hWnd, HookObj, dwmsEventTime)
                 }
-                HookObj.__UpdateMatchingWinList()
+                HookObj.__UpdateMatchingWinList(hWnd)
             }
         }
         if ((event = EVENT_OBJECT_LOCATIONCHANGE && EventName := "Move")
@@ -495,7 +516,7 @@ class WinEvent {
                 if !HookObj.IsPaused && !HookObj.MatchingWinList.Has(hWnd) && (MatchCriteria.IsBlank || ((A_DetectHiddenWindows := HookObj.DetectHiddenWindows, A_DetectHiddenText := HookObj.DetectHiddenText, A_TitleMatchMode := HookObj.TitleMatchMode, A_TitleMatchModeSpeed := HookObj.TitleMatchModeSpeed, 
                     MatchCriteria.ahk_id) ? MatchCriteria.ahk_id = hWnd && WinExist(MatchCriteria*) : WinExist(MatchCriteria[1] " ahk_id " hWnd, MatchCriteria[2], MatchCriteria[3], MatchCriteria[4])))
                     this.__AddCallbackToQueue(hWnd, HookObj, dwmsEventTime)
-                HookObj.__UpdateMatchingWinList()
+                HookObj.__UpdateMatchingWinList(hWnd)
             }
         }
         if (event = EVENT_SYSTEM_FOREGROUND || event = EVENT_OBJECT_NAMECHANGE) {
@@ -516,21 +537,23 @@ class WinEvent {
     }
     ; Internal use: keeps track of open windows that match the criteria, because matching for name
     ; class etc wouldn't work after the window is already destroyed. 
-    __UpdateMatchingWinList() {
-        if !this.MatchCriteria
+    __UpdateMatchingWinList(TriggerhWnd:=0, AddOnly:=0) {
+        if !this.MatchCriteria || !TriggerhWnd
             return
         local PrevDHW := DetectHiddenWindows(this.DetectHiddenWindows), PrevDHT := DetectHiddenText(this.DetectHiddenText)
-            , MatchingWinList := WinGetList(this.MatchCriteria*), MatchingWinListMap := Map(), hWnd
-        if this.EventType = "Restore" {
-            for hWnd in MatchingWinList {
-                try MatchingWinListMap[hWnd] := WinGetMinMax(hWnd)
+        if this.MatchCriteria.ahk_id ? TriggerhWnd == this.MatchCriteria.ahk_id : WinExist(this.MatchCriteria[1] " ahk_id " TriggerhWnd, this.MatchCriteria[2], this.MatchCriteria[3], this.MatchCriteria[4]) {
+            Properties := this.MatchingWinList.Has(TriggerhWnd) ? this.MatchingWinList[TriggerhWnd] : 1
+            if this.EventType = "Restore" {
+                try Properties := WinGetMinMax(TriggerhWnd)
+            } else if this.PropertyCallback {
+                try Properties := this.PropertyCallback.Call(TriggerhWnd)
+                catch
+                    Properties := "ERROR"
             }
-        } else {
-            for hWnd in MatchingWinList
-                MatchingWinListMap[hWnd] := 1
-        }
+            this.MatchingWinList[TriggerhWnd] := Properties
+        } else if this.MatchingWinList.Has(TriggerhWnd) && !AddOnly
+            this.MatchingWinList.Delete(TriggerhWnd)
         DetectHiddenWindows(PrevDHW), DetectHiddenText(PrevDHT)
-        this.MatchingWinList := MatchingWinListMap
     }
     static __WinGetCurrentTitle(&WinTitle:="", WinText:="", ExcludeTitle:="", ExcludeText:="") {
         local hWnd
