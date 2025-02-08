@@ -408,7 +408,7 @@ class WinEvent {
             for hWnd in WinGetList(MatchCriteria*)
                 this.__UpdateMatchingWinList(hWnd)
             if hWnd := WinExist(MatchCriteria*)
-                __WinEvent.__EventQueue.Push(Callback.Bind(hWnd, this, A_TickCount))
+                __WinEvent.__AddCallbackToQueue(hWnd, this, A_TickCount)
         } else if EventType = "Create" || EventType = "Show" {
             this.DetectHiddenWindows := 1, this.DetectHiddenText := 1
         }
