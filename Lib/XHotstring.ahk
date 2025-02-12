@@ -364,7 +364,7 @@ class XHotstring {
             if B
                 RegExReplace(TriggerText, "s)\X",, &BS)
         } else {
-            if (opts["C"] < 2) && IsUpper(SubStr(ThisHotstringLetters := RegexReplace(TriggerText, "\P{L}"), 1, 1), 'Locale') {
+            if (opts["C"] < 2) && ((ThisHotstringLetters := RegexReplace(TriggerText, "\P{L}")) != "") && IsUpper(SubStr(ThisHotstringLetters, 1, 1), 'Locale') {
                 if IsUpper(trail := SubStr(ThisHotstringLetters, 2), 'Locale')
                     replacement := StrUpper(replacement)
                 else
