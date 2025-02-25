@@ -1,9 +1,12 @@
-﻿#include ..\Lib\Misc.ahk
+﻿#Requires AutoHotkey v2
+#include ..\Lib\Misc.ahk 
 
 ; ----------------- Print ----------------------
+Print := Printer(OutputDebug)
 Print("Hello") ; Uses OutputDebug to print the string 'Hello'
 
-Print({example:"Object", key:"value"},MsgBox) ; Next calls of Print will use MsgBox to display the value
+Print.OutputFunc := MsgBox ; Next calls of Print will use MsgBox to display the value
+Print({example:"Object", key:"value"})
 ; ----------------- Range ----------------------
 
 ; Loop forwards, equivalent to Loop 10

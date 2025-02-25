@@ -1,7 +1,8 @@
 ﻿#include ..\Lib\Misc.ahk
 #include ..\Lib\Array.ahk
 
-Print([4,3,5,1,2].Sort(), MsgBox)
+Print := Printer(MsgBox)
+Print([4,3,5,1,2].Sort())
 Print(["a", 2, 1.2, 1.22, 1.20].Sort("C")) ; Default is numeric sort, so specify case-sensitivity if the array contains strings.
 
 myImmovables:=[]
