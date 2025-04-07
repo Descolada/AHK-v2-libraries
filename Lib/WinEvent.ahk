@@ -352,7 +352,7 @@ class WinEvent {
 
     static __New() {
         this.Prototype.__WinEvent := this
-        this.__RegisteredEvents := Map(), this.__RegisteredEvents.CaseSense := 0, this.__RegisteredEvents.Default := []
+        this.__RegisteredEvents := Map(), this.__RegisteredEvents.CaseSense := 0, this.__RegisteredEvents.Default := Map()
         this.__Hooks := Map(), this.__Hooks.CaseSense := 0
     }
     static __Delete() {
@@ -428,7 +428,7 @@ class WinEvent {
     __Delete() {
         if !this.MatchCriteria
             return
-        this.__WinEvent.__RegisteredEvents[this.EventType].Delete(this.MatchCriteria)
+        try this.__WinEvent.__RegisteredEvents[this.EventType].Delete(this.MatchCriteria)
         this.__WinEvent.__RemoveRequiredHooks(this.EventType)
     }
     ; Internal use: adds the callback function to a queue that gets emptied at the end of __HandleWinEvent.
