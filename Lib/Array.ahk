@@ -10,9 +10,9 @@
     Array.Slice(start:=1, end:=0, step:=1)  => Returns a section of the array from 'start' to 'end', 
         optionally skipping elements with 'step'.
     Array.Swap(a, b)                        => Swaps elements at indexes a and b.
-    Array.Map(func, arrays*)                => Applies a function to each element in the array.
+    Array.Map(func, arrays*)                => Applies a function to each element in the array and returns a new array.
     Array.ForEach(func)                     => Calls a function for each element in the array.
-    Array.Filter(func)                      => Keeps only values that satisfy the provided function
+    Array.Filter(func)                      => Keeps only values that satisfy the provided function and returns a new array with the results.
     Array.Reduce(func, initialValue?)       => Applies a function cumulatively to all the values in 
         the array, with an optional initial value.
     Array.IndexOf(value, start:=1)          => Finds a value in the array and returns its index.
@@ -75,7 +75,7 @@ class Array2 {
         return this
     }
     /**
-     * Applies a function to each element in the array (mutates the array).
+     * Applies a function to each element in the array and returns a new array with the results.
      * @param func The mapping function that accepts one argument.
      * @param arrays Additional arrays to be accepted in the mapping function
      * @returns {Array}
@@ -83,14 +83,15 @@ class Array2 {
     static Map(func, arrays*) {
         if !HasMethod(func)
             throw ValueError("Map: func must be a function", -1)
-        for i, v in this {
+        local new := this.Clone()
+        for i, v in new {
             bf := func.Bind(v?)
             for _, vv in arrays
                 bf := bf.Bind(vv.Has(i) ? vv[i] : unset)
             try bf := bf()
-            this[i] := bf
+            new[i] := bf
         }
-        return this
+        return new
     }
     /**
      * Applies a function to each element in the array.
@@ -105,7 +106,7 @@ class Array2 {
         return this
     }
     /**
-     * Keeps only values that satisfy the provided function
+     * Keeps only values that satisfy the provided function and returns a new array with the results.
      * @param func The filter function that accepts one argument.
      * @returns {Array}
      */
@@ -116,7 +117,7 @@ class Array2 {
         for v in this
             if func(v?)
                 r.Push(v)
-        return this := r
+        return r
     }
     /**
      * Applies a function cumulatively to all the values in the array, with an optional initial value.
