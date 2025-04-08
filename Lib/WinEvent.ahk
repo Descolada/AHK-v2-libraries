@@ -285,7 +285,7 @@ class WinEvent {
     static IsEventTypeRegistered(EventType) => this.__RegisteredEvents.Has(EventType)
 
     ; Stops the event hook, same as if the object was destroyed.
-    Stop() => (this.__Delete(), this.MatchCriteria := "", this.Callback := "")
+    Stop() => (this.Callback := "", this.__Delete(), this.MatchCriteria := "")
 
     /**
      * Pauses or unpauses the event hook. This can also be get/set via the `EventHook.IsPaused` property. 
@@ -327,12 +327,12 @@ class WinEvent {
                     throw TargetError("Window not found", -1)
                 this.threadId := DllCall("GetWindowThreadProcessId", "Int", this.winTitle, "UInt*", &PID)
             }
-            this.pCallback := CallbackCreate(callbackFunc, "C", 7)
+            this.pCallback := CallbackCreate(callbackFunc,, 7)
             , this.hHook := DllCall("SetWinEventHook", "UInt", eventMin, "UInt", eventMax, "Ptr", 0, "Ptr", this.pCallback, "UInt", this.PID := PID, "UInt", this.threadId, "UInt", flags)
         }
         __Delete() {
             DllCall("UnhookWinEvent", "Ptr", this.hHook)
-            , CallbackFree(this.pCallback)
+            SetTimer(CallbackFree.Bind(this.pCallback), -100) ; This needs to be done with a latency to let the message queue empty of unfired events
         }
     }
 
@@ -428,17 +428,27 @@ class WinEvent {
     __Delete() {
         if !this.MatchCriteria
             return
-        try this.__WinEvent.__RegisteredEvents[this.EventType].Delete(this.MatchCriteria)
         this.__WinEvent.__RemoveRequiredHooks(this.EventType)
+        try this.__WinEvent.__RegisteredEvents[this.EventType].Delete(this.MatchCriteria)
     }
     ; Internal use: adds the callback function to a queue that gets emptied at the end of __HandleWinEvent.
     static __AddCallbackToQueue(hWnd, HookObj, args*) => HookObj.Callback ? this.__EventQueue.Push(HookObj.Callback.Bind(hWnd, HookObj, args*), HookObj) : 0
     ; Internal use: calls all callbacks in a new pseudo-thread
     static __EmptyEventQueue() {
-        While this.__EventQueue.Length && (CB := this.__EventQueue.RemoveAt(1)) && (HookObj := this.__EventQueue.RemoveAt(1)) {
-            pCB := CallbackCreate(CB,, 0), ret := DllCall(pCB), CallbackFree(pCB) ; Call in a new pseudo-thread
-            if ret=0 && --HookObj.Count = 0
-                HookObj.Stop()
+        static EmptyingActive := 0
+        if EmptyingActive
+            return
+        EmptyingActive := 1
+        try {
+            while this.__EventQueue.Length && (CB := this.__EventQueue.RemoveAt(1)) && (HookObj := this.__EventQueue.RemoveAt(1)) {
+                if HookObj.Callback = ""
+                    continue
+                pCB := CallbackCreate(CB,, 0), ret := DllCall(pCB), CallbackFree(pCB) ; Call in a new pseudo-thread
+                if ret=0 && --HookObj.Count = 0
+                    HookObj.Stop()
+            }
+        } finally {
+            EmptyingActive := 0
         }
     }
     ; Internal use: handles the event called by SetWinEventHook. 
