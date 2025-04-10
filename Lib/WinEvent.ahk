@@ -332,7 +332,7 @@ class WinEvent {
         }
         __Delete() {
             DllCall("UnhookWinEvent", "Ptr", this.hHook)
-            SetTimer(CallbackFree.Bind(this.pCallback), -100) ; This needs to be done with a latency to let the message queue empty of unfired events
+            SetTimer(CallbackFree.Bind(this.pCallback), -1000) ; This needs to be done with a latency to let the message queue empty of unfired events
         }
     }
 
