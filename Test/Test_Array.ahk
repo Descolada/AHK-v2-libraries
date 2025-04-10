@@ -11,6 +11,10 @@ class ArrayTestSuite {
         DUnit.Equal([1,2,3,4,5].Slice(2), [2,3,4,5])
         DUnit.Equal([1,2,,4,5].Slice(2), [2,,4,5])
         DUnit.Equal([1,2,,4,5].Slice(1,3), [1,2, unset])
+        DUnit.Equal([1,2,3,4,5,6,7].Slice(-1, -1), [7])
+        DUnit.Equal([1,2,3,4,5,6,7].Slice(-2, -1), [6,7])
+        DUnit.Equal([1,2,3,4,5,6,7].Slice(-10, -1), [1,2,3,4,5,6,7])
+        DUnit.Equal([1,2,3,4,5,6,7].Slice(1, -1), [1,2,3,4,5,6,7])
     }
     Test_Swap() {
         DUnit.Equal([1,2].Swap(1,2), [2,1])

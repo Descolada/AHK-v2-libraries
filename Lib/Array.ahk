@@ -39,7 +39,7 @@ class Array2 {
      * @returns {Array}
      */
     static Slice(start:=1, end:=0, step:=1) {
-        len := this.Length, i := start < 1 ? len + start : start, j := Min(end < 1 ? len + end : end, len), r := [], reverse := False
+        len := this.Length, i := start < 1 ? len + start + 1 : start, j := Min(end < 1 ? len + end + 1 : end, len), r := [], reverse := False
         if step = 0
             Throw ValueError("Slice: step cannot be 0", -1)
         if len = 0
@@ -60,7 +60,7 @@ class Array2 {
                 i += step
             }
         }
-        return this := r
+        return r
     }
     /**
      * Swaps elements at indexes a and b
