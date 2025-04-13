@@ -62,6 +62,13 @@
  * WinEvent properties:
  * `WinEvent.IsPaused`
  *      Can be used to get or set the paused state of all events. 
+ * 
+ * NOTE: if an event is registered then the script automatically becomes persistent and the persistency
+ * is not automatically removed when the events are deregistered. Additionally, when event handlers
+ * are removed then a timer is set for 60 seconds to remove an internal callback pointer, which means
+ * simply removing persistency from the script won't cause it to exit immediately (if there are no
+ * other reasons to stay open). To exit immediately after stopping the hooks, use `ExitApp`.
+ * 
  */
 class WinEvent {
     ; A curated list of event enumerations
