@@ -45,9 +45,9 @@ class MapTestSuite {
         DUnit.Equal(Map("a", 1, "b", 1, "c", 2).Count(1), 2)
         DUnit.Equal(Map("a", 1, "b", 1, "c", 2).Count((a) => (Mod(a,2) == 0)), 1)
     }
-    Test_Extend() {
-        DUnit.Equal(Map("a", 1, "b", 2).Extend(Map("c", 3)), this.Map)
-        DUnit.Throws(Array2.Extend.Bind(Map(), 0), "ValueError")
-        DUnit.Equal(Map("a", 1, "b", 2).Extend([3]), Map("a", 1, "b", 2, 1, 3))
+    Test_Merge() {
+        DUnit.Equal(Map("a", 1, "b", 2).Merge(Map("c", 3)), this.Map)
+        DUnit.Throws(Map2.Merge.Bind(Map(), 0), "ValueError")
+        DUnit.Equal(Map("a", 1, "b", 2).Merge([3]), Map("a", 1, "b", 2, 1, 3))
     }
 }

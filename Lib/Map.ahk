@@ -20,9 +20,8 @@
     Map.Merge(enums*)                     => Adds the contents of other maps/enumerables to this map
 */
 
-Map.Prototype.base := Map2
-
 class Map2 {
+    static __New() => (Map2.base := Map.Prototype.base, Map.Prototype.base := Map2)
     /**
      * Returns all the keys of the Map in an array
      * @returns {Array}
@@ -121,7 +120,7 @@ class Map2 {
      * @param enums The enumerables that are used to extend this one.
      * @returns {Array}
      */
-    static Extend(enums*) {
+    static Merge(enums*) {
         for i, enum in enums {
             if !HasMethod(enum, "__Enum")
                 throw ValueError("Extend: argument " i " is not an iterable")
