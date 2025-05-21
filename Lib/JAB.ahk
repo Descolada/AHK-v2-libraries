@@ -745,7 +745,7 @@ class JAB {
 
         ; Retrieves text between start and end index
         GetTextRange(startc:=0, endc:=0) {
-            TInfo := this.GetTextInfo(), startc := Max(0, startc), endc := Min(TInfo.CharCount-1, endc = 0 ? 0xFFFFFFFF : endc), len:=endc-startc
+            TInfo := this.GetTextInfo(), startc := Max(0, startc), endc := Min(TInfo.CharCount-1, endc = 0 ? 0xFFFFFFFF : endc), len:=endc-startc+1
             if (DllCall(this.JAB.DllPath "\getAccessibleTextRange", "Int", this.__vmID, this.JAB.__acType, this.__ac, "Int", startc, "Int", endc, "Ptr", Txt := Buffer(len*2, 0), "short", len, "Cdecl Int"))
                 return StrGet(Txt, len, "UTF-16")
             throw Error("Unable to get text range", -1, "Is TextInterface available?")
