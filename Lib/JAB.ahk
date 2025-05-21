@@ -1128,7 +1128,7 @@ class JAB {
                     return
                 for i, child in el.%ChildOrder% {
                     c := 0
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child, i, depth)) > 0 && --index = 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") && (scope & 1) : 0) : 1) && (c := callback(child, i, depth)) > 0 && --index = 0
                         return (child.Path := Trim(path "," i, ","), child)
                     else if (c >= 0) && scope&4 && (found := PreOrderRecursiveFind(child, path "," i, depth))
                         return found
@@ -1146,7 +1146,7 @@ class JAB {
                             break
                     }
                 }
-                if scope&1 && (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && ((c := callback(el, i, depth)) > 0) && --index = 0
+                if scope&1 && (startingElement ? (startingElement = el.Id ? !(startingElement := "") && (scope & 1) : 0) : 1) && ((c := callback(el, i, depth)) > 0) && --index = 0
                     return (el.Path := Trim(path, ","), el)
                 return c
             }
@@ -1187,7 +1187,7 @@ class JAB {
                     return
                 for i, child in el.%ChildOrder% {
                     c := 0
-                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") : 0) : 1) && (c := callback(child, i, depth)) > 0
+                    if (startingElement ? (startingElement = child.Id ? !(startingElement := "") && (scope & 1) : 0) : 1) && (c := callback(child, i, depth)) > 0
                         child.Path := Trim(path "," i, ","), foundElements.Push(child)
                     if c >= 0 && scope&4
                         PreOrderRecursiveFind(child, path "," i, depth)
@@ -1203,7 +1203,7 @@ class JAB {
                             break
                     }
                 }
-                if scope&1 && (startingElement ? (startingElement = el.Id ? !(startingElement := "") : 0) : 1) && (c := callback(el, i, depth)) > 0
+                if scope&1 && (startingElement ? (startingElement = el.Id ? !(startingElement := "") && (scope & 1) : 0) : 1) && (c := callback(el, i, depth)) > 0
                     el.Path := Trim(path, ","), foundElements.Push(el)
                 return c
             }
