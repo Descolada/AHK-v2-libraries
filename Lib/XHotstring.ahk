@@ -97,9 +97,9 @@ class XHotstring {
             else if Trigger = "EndChars"
                 return (Prev := this.EndChars, this.EndChars := Replacement ?? Prev, Prev)
 
-            return (Prev := this.__OptionsToString(this.__DefaultOptions), this.__ParseOptions(this.__DefaultOptions, Trigger), Prev)
+            return (Prev := this.__OptionsToString(this.__DefaultOptions), this.__ParseOptions(this.__DefaultOptions, StrUpper(Trigger)), Prev)
         }
-        TriggerWithOptions := Trigger, Options := Options[1], Trigger := RegExReplace(Trigger, "^:([^:]*):",,, 1)
+        TriggerWithOptions := Trigger, Options := StrUpper(Options[1]), Trigger := RegExReplace(Trigger, "^:([^:]*):",,, 1)
         if Trigger = ""
             throw ValueError("Invalid XHotstring trigger", -1, "Can't be an empty string")
         for HS in this.__RegisteredHotstrings {
