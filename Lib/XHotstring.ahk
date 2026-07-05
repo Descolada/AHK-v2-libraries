@@ -90,7 +90,7 @@ class XHotstring {
         if !this.__RegisteredHotstrings.Length
             this.Start()
         if !RegExMatch(Trigger, "^:([^:]*):", &Options:="") {
-            if Trigger = "MouseReset" || (Trigger := "NoMouse" && !(Replacement := 0))
+            if Trigger = "MouseReset" || (Trigger = "NoMouse" && !(Replacement = 0))
                 return (Prev := this.MouseReset, this.MouseReset := Replacement ?? Prev, Prev)
             else if Trigger = "Reset"
                 return this.Reset()
